@@ -154,7 +154,9 @@ export async function onConnectionComplete(protocolVersion: number, socket: ModS
             return;
         }
 
-        socket.sendDiscord = true
+        if (!socket.isConnected) serverData.connectedSockets.push(socket);
+        socket.sendDiscord = true;
+
         const totalOnline = serverData.connectedSockets.length;
         const onlineCount = getSocketsWithSamePurpose(socket.hivemindData.name)
 

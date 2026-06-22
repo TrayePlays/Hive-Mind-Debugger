@@ -63,7 +63,6 @@ function onInitConnection(socket: ModSocket) {
 function onDebugeeConnected(socket: ModSocket) {
     socket.streamParser = new MessageStreamParser();
 
-    if (!socket.isConnected) serverData.connectedSockets.push(socket);
     socket.socket.setKeepAlive(true, 15000);
 
     socket.socket.on("close", () => {
