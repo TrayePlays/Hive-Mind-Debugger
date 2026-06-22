@@ -3,6 +3,7 @@ import { serverData } from './serverData';
 import path from 'path';
 import fs from 'fs';
 import { onReload } from './utils';
+import { loadConfig } from './configLoader';
 
 // Using port 19144 because its default port
 const server = new Server().listen(19144);
@@ -43,13 +44,8 @@ function reloadServer() {
     }
 }
 
-export function loadConfig() {
-    delete require.cache[require.resolve("./config.js")];
-    return require("./config.js");
-}
-
 function reloadConfig() {
-    console.log("Config updated");
+    console.log("Config updated!");
     serverData.config = loadConfig();
 }
 

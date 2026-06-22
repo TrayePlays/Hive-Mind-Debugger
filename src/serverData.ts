@@ -1,6 +1,6 @@
 import { Socket } from "net"
 import { ModSocket } from "./utils"
-import { loadConfig } from "./main"
+import { loadConfig } from "./configLoader"
 
 interface Config {
     LATEST_VERSION: number
