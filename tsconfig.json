@@ -1,0 +1,21 @@
+{
+	"compilerOptions": {
+		"module": "commonjs",
+		"target": "es2022",
+		"moduleResolution": "node",
+		"ignoreDeprecations": "6.0",
+		"esModuleInterop": true,
+		"allowSyntheticDefaultImports": true,
+		"rootDir": "./src",
+		"outDir": "./dist",
+		"types": [
+			"node"
+		]
+	},
+	"exclude": [
+		"node_modules"
+	],
+	"include": [
+		"src/**/*"
+	]
+}

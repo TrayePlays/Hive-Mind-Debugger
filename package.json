@@ -1,0 +1,18 @@
+{
+  "name": "Hive Mind Debugger",
+  "version": "0.2",
+  "main": "main.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "TrayePlays",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@vscode/debugadapter": "^1.68.0",
+    "@vscode/debugprotocol": "^1.68.0",
+    "stream-parser": "^0.3.1",
+    "vscode": "^1.1.37"
+  }
+}
