@@ -137,7 +137,7 @@ export async function onConnectionComplete(protocolVersion: number, socket: ModS
             onClose(socket)
             return;
         }
-    
+
         if (socket.hivemindData.name.length > 20) {
             console.warn(`Socket name too long`);
             sendMessage(socket, `§4ERROR: §cAPI Name too long! §7(20 char max)`)
@@ -569,7 +569,10 @@ export class MessageStreamParser extends Transform {
 
 
     private onMessage(buffer: Buffer) {
-        const json = JSON.parse(buffer.toString());
+        let json = JSON.stringify([])
+        try {
+            json = JSON.parse(buffer.toString());
+        } catch {}
         this.emit('message', json);
         this._bytes(9, this.onLength);
     }

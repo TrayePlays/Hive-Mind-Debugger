@@ -2,6 +2,9 @@ import { Socket } from "net";
 import { DebuggeeResponseEnvelope, handleDebugeeEvent, MessageStreamParser, ModSocket, onClose, onConnectionComplete, ProtocolCapabilities } from "./utils";
 import { onDiscordClose } from "./discord";
 import { serverData } from "./serverData";
+import * as dotenv from "dotenv"
+
+dotenv.config();
 
 export function start(socket: Socket, connectionData: {isConnected?: boolean, protocolCapabilities?: ProtocolCapabilities}) {
     const modSocket = new ModSocket(socket, connectionData);
@@ -15,7 +18,6 @@ export function reload(socket: ModSocket) {
 
 function onInitConnection(socket: ModSocket) {
     if (socket.isConnected) {
-        console.log(`alr conected skippin`)
         onDebugeeConnected(socket);
         return
     };
@@ -29,11 +31,11 @@ function onInitConnection(socket: ModSocket) {
 
         const queryString = rawString.includes('?') ? rawString.split('?')[1] || rawString : rawString;
         const params = new URLSearchParams(queryString);
-        const fromLocation = params.get('from');
+        const key = params.get('key');
 
         socket.socket.off('error', earlyErrorHandler);
 
-        if (fromLocation === "discord") {
+        if (key === process.env.KEY) {
             console.log(`Discord Bot Connected!`);
             socket.socket.on("error", (e) => {
                 console.warn(e.stack);

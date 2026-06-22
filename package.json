@@ -12,7 +12,11 @@
   "dependencies": {
     "@vscode/debugadapter": "^1.68.0",
     "@vscode/debugprotocol": "^1.68.0",
+    "dotenv": "^17.4.2",
     "stream-parser": "^0.3.1",
     "vscode": "^1.1.37"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0"
   }
 }
