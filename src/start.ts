@@ -3,8 +3,11 @@ import { DebuggeeResponseEnvelope, handleDebugeeEvent, MessageStreamParser, ModS
 import { onDiscordClose } from "./discord";
 import { serverData } from "./serverData";
 import * as dotenv from "dotenv"
+import path from "path";
 
-dotenv.config();
+dotenv.config({
+    path: path.resolve(__dirname, '../.env')
+});
 
 export function start(socket: Socket, connectionData: {isConnected?: boolean, protocolCapabilities?: ProtocolCapabilities}) {
     const modSocket = new ModSocket(socket, connectionData);
