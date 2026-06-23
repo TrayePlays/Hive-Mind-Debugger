@@ -557,7 +557,7 @@ export class MessageStreamParser extends Transform {
         const length = parseInt(hex, 16);
 
         if (!Number.isFinite(length) || length <= 0) {
-            console.warn("Invalid length header received:", hex);
+            // console.warn("Invalid length header received:", hex);
 
             this._bytes(9, this.onLength);
             return;
