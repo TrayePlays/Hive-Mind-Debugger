@@ -245,6 +245,11 @@ export function handleDebugeeEvent(socket: ModSocket, eventMessage: any) {
         for (const stat of evt.stats) {
             if (stat.name == "dynamic_property_values") {
                 const dps = stat.children
+                const disconnectDP = dps.find(dp => dp.name == "hivemindDisconnect")
+                if (disconnectDP) {
+                    onClose(socket);
+                    return;
+                }
                 const requestDP = dps.filter(a => a.name.startsWith(`hivemindRequest`)).sort((a, b) => parseInt(b.name.split("hivemindRequest")[1].split(":")[0]) - parseInt(a.name.split("hivemindRequest")[1].split(":")[0]));
                 for (const dp of requestDP) {
                     //.values[0] holds the dynamic property value
