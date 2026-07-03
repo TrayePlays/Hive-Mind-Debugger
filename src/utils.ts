@@ -123,7 +123,7 @@ export async function onConnectionComplete(protocolVersion: number, socket: ModS
         }
 
         if (!socket.hivemindData) {
-            console.warn(`Socket has no purpose`);
+            // console.warn(`Socket has no purpose`);
             sendMessage(socket, `§4ERROR: §cNo purpose response! Check your version!`)
             await sleep(2000);
             onClose(socket)
@@ -131,7 +131,7 @@ export async function onConnectionComplete(protocolVersion: number, socket: ModS
         }
 
         if (socket.hivemindData.name.includes(" ")) {
-            console.warn(`Socket has space in the name`);
+            // console.warn(`Socket has space in the name`);
             sendMessage(socket, `§4ERROR: §cRemove the spaces in the API NAME!`)
             await sleep(2000);
             onClose(socket)
@@ -139,7 +139,7 @@ export async function onConnectionComplete(protocolVersion: number, socket: ModS
         }
 
         if (socket.hivemindData.name.length > 20) {
-            console.warn(`Socket name too long`);
+            // console.warn(`Socket name too long`);
             sendMessage(socket, `§4ERROR: §cAPI Name too long! §7(20 char max)`)
             await sleep(2000);
             onClose(socket)
@@ -147,7 +147,7 @@ export async function onConnectionComplete(protocolVersion: number, socket: ModS
         }
 
         if (socket.hivemindData.version > LATEST_VERSION || socket.hivemindData.version < FIRST_VERSION || isNaN(socket.hivemindData.version)) {
-            console.warn(`Socket version ${socket.hivemindData.version} DISCONNECTED`);
+            // console.warn(`Socket version ${socket.hivemindData.version} DISCONNECTED`);
             sendMessage(socket, `§4ERROR: §cBro, how did you get this version?!`)
             await sleep(2000);
             onClose(socket)
