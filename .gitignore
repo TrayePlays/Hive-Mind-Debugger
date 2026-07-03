@@ -4,3 +4,5 @@ node_modules/
 *.code-workspace
 deploy.sh
 .env
+*.exe
+ignored/

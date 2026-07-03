@@ -83,7 +83,6 @@ export function onClose(socket: ModSocket | undefined, noDelete = false) {
     socket.socket.removeAllListeners("error");
     socket.socket.removeAllListeners("close");
     socket.socket.removeAllListeners("timeout");
-    socket.sendDiscord = undefined;
     socket.rateLimit = undefined;
     socket.requests.clear();
     socket!.requestManager = undefined;
@@ -92,6 +91,7 @@ export function onClose(socket: ModSocket | undefined, noDelete = false) {
     socket.socket.destroy();
     if (socket.sendDiscord && socket.hivemindData) messageDiscord(`# API (${socket.hivemindData.name}) Disconnected\n**[:bee:]** ${serverData.connectedSockets.length} Online`);
     console.log(`Socket disconnected! ${serverData.connectedSockets.length} Online!`);
+    socket.sendDiscord = undefined;
     socket.hivemindData = undefined;
 }
 
@@ -163,7 +163,7 @@ export async function onConnectionComplete(protocolVersion: number, socket: ModS
         console.log(`Socket connected with purpose: ${socket.hivemindData.name} (${totalOnline} Online)`)
 
         messageDiscord(`# API (${socket.hivemindData.name}) Connected\n**[:bee:]** ${totalOnline} Online\n-# There ${onlineCount === 1 ? "is" : "are"} ${onlineCount} Online using the mod`)
-        sendMessage(socket, `§eWorld connected to §6Hive Mind API v${socket.hivemindData.version}! ${socket.hivemindData.version != LATEST_VERSION ? "§7(§bUpdate Available§7) " : ""}§7(§a${totalOnline} Online§7)`);
+        sendMessage(socket, `§eWorld connected to §6Hive Mind API v${socket.hivemindData.version}! §7(§a${totalOnline} Online§7) ${socket.hivemindData.version != LATEST_VERSION ? "§7(§bUpdate Available§7)" : ""}`);
         sendMessage(socket, `§7There ${onlineCount === 1 ? "is" : "are"} §2${onlineCount} Online§7 playing the same mod as you`)
     }
 };
@@ -218,7 +218,6 @@ async function runCommandAsync(socket: ModSocket, command: string) {
 
                         if (dpChecks > 5) {
                             cleanup();
-                            console.warn(`No response in 5 checks`)
                             resolve(undefined)
                         }
 
@@ -244,16 +243,52 @@ export function handleDebugeeEvent(socket: ModSocket, eventMessage: any) {
         const evt = eventMessage as StatEvent2
         for (const stat of evt.stats) {
             if (stat.name == "dynamic_property_values") {
-                const dps = stat.children
-                const disconnectDP = dps.find(dp => dp.name == "hivemindDisconnect")
+                const dps = stat.children;
+
+                const disconnectDP = dps.find(dp => dp.name == "hivemindDisconnect");
                 if (disconnectDP) {
                     onClose(socket);
                     return;
                 }
-                const requestDP = dps.filter(a => a.name.startsWith(`hivemindRequest`)).sort((a, b) => parseInt(b.name.split("hivemindRequest")[1].split(":")[0]) - parseInt(a.name.split("hivemindRequest")[1].split(":")[0]));
-                for (const dp of requestDP) {
-                    //.values[0] holds the dynamic property value
-                    handleRequest(dp.values[0], socket)
+
+                // v0.2 or less
+                const legacyRequests = dps.filter(dp => dp.name.startsWith("hivemindRequest") && !dp.name.includes("|"));
+
+                for (const dp of legacyRequests) {
+                    handleRequest(dp.values[0], socket);
+                    continue;
+                }
+
+                // v0.3 and above
+                const chunked = dps.filter(dp => dp.name.startsWith("hivemindRequest") && dp.name.includes("|"));
+
+                const requestGroups = new Map<string, any[]>();
+
+                for (const dp of chunked) {
+                    const [key, index] = dp.name.split("|");
+
+                    if (!requestGroups.has(key)) requestGroups.set(key, []);
+
+                    requestGroups.get(key)!.push({
+                        index,
+                        value: dp.values[0]
+                    });
+                }
+
+                for (const [id, parts] of requestGroups) {
+                    const meta = parts.find(p => p.index === "meta");
+                    if (!meta) continue;
+
+                    const chunkCount = meta.value;
+
+                    let full = "";
+
+                    for (let i = 0; i < chunkCount; i++) {
+                        const chunk = parts.find(p => p.index === String(i));
+                        if (!chunk) continue;
+                        full += chunk.value;
+                    }
+                    handleRequest(full, socket);
                 }
             }
         }
@@ -577,7 +612,7 @@ export class MessageStreamParser extends Transform {
         let json = JSON.stringify([])
         try {
             json = JSON.parse(buffer.toString());
-        } catch {}
+        } catch { }
         this.emit('message', json);
         this._bytes(9, this.onLength);
     }

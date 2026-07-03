@@ -2,6 +2,10 @@
 
 This is what's going on the server when you connect using the [api](https://github.com/TrayePlays/Hive-Mind-Api-Public).
 
+# WARNING
+If you intend to post / share the mod. Please encrypt / obfuscate your key otherwise the downloader will be able to see it.
+Also for the debugger it's not encrypted. Send data carefully!
+
 # Connecting
 
 You are first going to need to connect to Hive Mind.

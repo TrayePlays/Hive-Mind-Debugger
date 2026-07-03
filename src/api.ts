@@ -104,7 +104,8 @@ export async function handleRequest(data: string, socket: ModSocket) {
                 const dataReceived = await res.json();
                 let str = JSON.stringify(JSON.stringify(dataReceived)).slice(1, -1);
                 if (scriptEvent) str = JSON.stringify(dataReceived);
-                const maxChunk = 100000 - request.id.length - (scriptEvent ? 21 : 0);
+                // 2074 max length of command
+                const maxChunk = 2000 - request.id.length - (scriptEvent ? 21 : 0);
                 const chunks = [];
 
                 let i = 0;
@@ -135,7 +136,7 @@ export async function handleRequest(data: string, socket: ModSocket) {
                 sendResponse(socket, { id: request.id, status: ServerStatusResponse.Success, message: `Get your data with .getData() (build time: ${((75 * Math.floor(strArr.length / 10)) / 1000).toFixed(2)}s)` }, scriptEvent)
             } catch (e: any) {
                 console.error(e.stack);
-                sendResponse(socket, { id: request.id, status: ServerStatusResponse.Failure, message: `Failed to get data from website!` }, scriptEvent)
+                sendResponse(socket, { id: request.id, status: ServerStatusResponse.Failure, message: `Failed to get data from website: ${e.message}` }, scriptEvent)
             }
         }
     } catch (e: any) {
