@@ -468,6 +468,7 @@ interface PendingDebuggerRequest {
 
 export function sendDebuggeeMessage(socket: ModSocket, envelope: unknown): void {
     if (!socket || !socket.socket.write || socket.socket.destroyed || !socket.socket.writable) {
+        onClose(socket);
         return;
     }
 
