@@ -124,7 +124,7 @@ export async function onConnectionComplete(protocolVersion: number, socket: ModS
 
         if (!socket.hivemindData) {
             // console.warn(`Socket has no purpose`);
-            sendMessage(socket, `§4ERROR: §cNo purpose response! Check your version!`)
+            sendMessage(socket, `§4ERROR: §cNo purpose response! Check your version!\n§9For help join discord: https://discord.gg/GHzNqpZ4Bu`)
             await sleep(2000);
             onClose(socket)
             return;

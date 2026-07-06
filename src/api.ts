@@ -1,5 +1,6 @@
 import { serverData } from "./serverData"
 import { ModSocket, runCommand, sleep } from "./utils"
+import sharp from 'sharp';
 const MAX_REQUESTS_IN_30 = serverData.config.MAX_REQUESTS_IN_30;
 
 interface Request {
@@ -19,7 +20,7 @@ interface HttpRequestData {
 
 // More request types later
 enum RequestTypes {
-    HttpRequest = "httpRequest" // v0.2+
+    HttpRequest = "httpRequest", // v0.2+
 }
 
 enum ServerStatusResponse {
@@ -101,7 +102,29 @@ export async function handleRequest(data: string, socket: ModSocket) {
             }
             try {
                 const res = await fetch(request.data.uri, request.data.init)
-                const dataReceived = await res.json();
+
+                if (!res.ok) {
+                    sendResponse(socket, {status: ServerStatusResponse.Failure, id: request.id, message: `HTTP Error! Status code: ${res.status}`})
+                    return;
+                }
+
+                const contentType = res.headers.get('content-type') || '';
+                let dataReceived: any;
+                if (contentType.includes("application/json")) {
+                    dataReceived = await res.json();
+                } else if (contentType.startsWith("image/")) {
+                    const arrBuffer = await res.arrayBuffer();
+                    const buffer = Buffer.from(arrBuffer);
+                    const { data, info } = await sharp(buffer).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+
+                    dataReceived = {
+                        data: Array.from(data),
+                        width: info.width,
+                        height: info.height
+                    };
+                } else {
+                    dataReceived = await res.text();
+                }
                 let str = JSON.stringify(JSON.stringify(dataReceived)).slice(1, -1);
                 if (scriptEvent) str = JSON.stringify(dataReceived);
                 // 2074 max length of command
