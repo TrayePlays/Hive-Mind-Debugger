@@ -3,6 +3,7 @@ import { DebugProtocol } from '@vscode/debugprotocol';
 import { handleRequest } from "./api";
 import { serverData } from "./serverData";
 import { messageDiscord } from "./discord";
+import { once } from "events";
 const MAX_REQUESTS_IN_30 = serverData.config.MAX_REQUESTS_IN_30;
 const LATEST_VERSION = serverData.config.LATEST_VERSION;
 const FIRST_VERSION = serverData.config.FIRST_VERSION;
@@ -96,19 +97,19 @@ export function onClose(socket: ModSocket | undefined, noDelete = false) {
 }
 
 export async function onConnectionComplete(protocolVersion: number, socket: ModSocket, targetModuleUuid?: string, passcode?: string) {
-    sendDebuggeeMessage(socket, {
+    await sendDebuggeeMessage(socket, {
         type: 'protocol',
         version: protocolVersion,
         target_module_uuid: targetModuleUuid,
         passcode: passcode,
     });
 
-    sendDebuggeeMessage(socket, {
+    await sendDebuggeeMessage(socket, {
         event: "initialized",
         type: "event"
     });
 
-    sendDebuggeeMessage(socket, {
+    await sendDebuggeeMessage(socket, {
         type: 'resume',
     });
 
@@ -254,9 +255,11 @@ export function handleDebugeeEvent(socket: ModSocket, eventMessage: any) {
                 // v0.2 or less
                 const legacyRequests = dps.filter(dp => dp.name.startsWith("hivemindRequest") && !dp.name.includes("|"));
 
-                for (const dp of legacyRequests) {
-                    handleRequest(dp.values[0], socket);
-                    continue;
+                if (legacyRequests.length != 0) {
+                    for (const dp of legacyRequests) {
+                        handleRequest(dp.values[0], socket);
+                    }
+                    return;
                 }
 
                 // v0.3 and above
@@ -295,15 +298,15 @@ export function handleDebugeeEvent(socket: ModSocket, eventMessage: any) {
     }
 }
 
-export function runCommand(socket: ModSocket, command: string): void {
+export async function runCommand(socket: ModSocket, command: string): Promise<void> {
     if (socket.version < ProtocolVersion.SupportProfilerCaptures || socket.version >= ProtocolVersion.SupportCerealSerialization) {
-        sendDebuggeeMessage(socket, {
+        await sendDebuggeeMessage(socket, {
             type: 'minecraftCommand',
             command: command,
             dimension_type: 'overworld',
         });
     } else {
-        sendDebuggeeMessage(socket, {
+        await sendDebuggeeMessage(socket, {
             type: 'minecraftCommand',
             command: {
                 command: command,
@@ -466,7 +469,7 @@ interface PendingDebuggerRequest {
     timeout?: ReturnType<typeof setTimeout>;
 }
 
-export function sendDebuggeeMessage(socket: ModSocket, envelope: unknown): void {
+export async function sendDebuggeeMessage(socket: ModSocket, envelope: unknown): Promise<void> {
     if (!socket || !socket.socket.write || socket.socket.destroyed || !socket.socket.writable) {
         onClose(socket);
         return;
@@ -494,7 +497,9 @@ export function sendDebuggeeMessage(socket: ModSocket, envelope: unknown): void 
     const newline = Buffer.from('\n');
     const buffer = Buffer.concat([lengthBuffer, jsonBuffer, newline]);
 
-    socket.socket.write(buffer);
+    if (!socket.socket.write(buffer)) {
+        await once(socket.socket, "drain");
+    }
 }
 
 export class RequestManager {

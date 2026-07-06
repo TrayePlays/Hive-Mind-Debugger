@@ -41,7 +41,7 @@ async function runBatched(socket: ModSocket, commands: string[], batchSize = 1, 
         const end = Math.min(index + batchSize, commands.length);
 
         for (let i = index; i < end; i++) {
-            runCommand(socket, commands[i]);
+            await runCommand(socket, commands[i]);
         }
 
         index = end;
