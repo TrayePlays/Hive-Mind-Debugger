@@ -113,9 +113,13 @@ export async function handleRequest(data: string, socket: ModSocket) {
                 if (contentType.includes("application/json")) {
                     dataReceived = await res.json();
                 } else if (contentType.startsWith("image/")) {
+                    console.log(`Image requested!`)
                     const arrBuffer = await res.arrayBuffer();
+                    console.log(`Image to array buffer success!`)
                     const buffer = Buffer.from(arrBuffer);
+                    console.log(`Made array buffer from buffer!`)
                     const { data, info } = await sharp(buffer).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+                    console.log(`Got sharp info and data`);
 
                     dataReceived = {
                         data: Array.from(data),
