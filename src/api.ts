@@ -127,7 +127,7 @@ export async function handleRequest(data: string, socket: ModSocket) {
                     if (crop != undefined) {
                         image = image.extract(crop);
                     }
-                    
+
                     const { data, info } = await image.raw().toBuffer({ resolveWithObject: true });
 
                     dataReceived = {
@@ -167,7 +167,7 @@ export async function handleRequest(data: string, socket: ModSocket) {
                     await new Promise(r => setImmediate(r));
                     strArr.push(`${scriptEvent ? "scriptevent hivemind:" : ""}set add ${scriptEventQuote}${request.id}${scriptEventQuote} ${scriptEventQuote}${chunk}${scriptEventQuote}`);
                 }
-                await runBatched(socket, strArr, 1, 750)
+                await runBatched(socket, strArr, 1, 1000)
                 sendResponse(socket, { id: request.id, status: ServerStatusResponse.Success, message: `Get your data with .getData()` }, scriptEvent)
             } catch (e: any) {
                 console.error(e.stack);
