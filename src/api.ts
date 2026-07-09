@@ -29,9 +29,9 @@ enum ServerStatusResponse {
     Failure = 1
 }
 
-function sendResponse(socket: ModSocket, data: { status: ServerStatusResponse, id: string, data?: string, message?: string }, scriptEvent = true) {
+async function sendResponse(socket: ModSocket, data: { status: ServerStatusResponse, id: string, data?: string, message?: string }, scriptEvent = true) {
     const scriptEventQuote = scriptEvent ? "" : `"`
-    runCommand(socket, `${scriptEvent ? "scriptevent hivemind:" : ""}respond ${scriptEventQuote}${data.id}|${data.status}${data.message ? `|${data.message}` : ""}${data.data ? `|${data.data}` : ""}${scriptEventQuote}`)
+    await runCommand(socket, `${scriptEvent ? "scriptevent hivemind:" : ""}respond ${scriptEventQuote}${data.id}|${data.status}${data.message ? `|${data.message}` : ""}${data.data ? `|${data.data}` : ""}${scriptEventQuote}`)
 }
 
 async function runBatched(socket: ModSocket, commands: string[], batchSize = 1, delay = 1) {
