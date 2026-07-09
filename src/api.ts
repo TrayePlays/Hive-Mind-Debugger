@@ -114,13 +114,9 @@ export async function handleRequest(data: string, socket: ModSocket) {
                 if (contentType.includes("application/json")) {
                     dataReceived = await res.json();
                 } else if (contentType.startsWith("image/")) {
-                    console.log(`Image requested!`)
                     const arrBuffer = await res.arrayBuffer();
-                    console.log(`Image to array buffer success!`)
                     const buffer = Buffer.from(arrBuffer);
-                    console.log(`Made array buffer from buffer!`)
                     const { data, info } = await sharp(buffer).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-                    console.log(`Got sharp info and data`);
 
                     dataReceived = {
                         data: Array.from(data),
@@ -159,10 +155,8 @@ export async function handleRequest(data: string, socket: ModSocket) {
                     await new Promise(r => setImmediate(r));
                     strArr.push(`${scriptEvent ? "scriptevent hivemind:" : ""}set add ${scriptEventQuote}${request.id}${scriptEventQuote} ${scriptEventQuote}${chunk}${scriptEventQuote}`);
                 }
-                await runBatched(socket, strArr, 1, 1000)
-                console.log(`sending response`)
+                await runBatched(socket, strArr, 5, 500)
                 sendResponse(socket, { id: request.id, status: ServerStatusResponse.Success, message: `Get your data with .getData()` }, scriptEvent)
-                console.log(`maybe sent response?`)
             } catch (e: any) {
                 console.error(e.stack);
                 sendResponse(socket, { id: request.id, status: ServerStatusResponse.Failure, message: `Failed to get data from website: ${e.message}` }, scriptEvent)
