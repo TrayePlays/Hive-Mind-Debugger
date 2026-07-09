@@ -41,6 +41,7 @@ async function runBatched(socket: ModSocket, commands: string[], batchSize = 1, 
         const end = Math.min(index + batchSize, commands.length);
 
         for (let i = index; i < end; i++) {
+            if (Math.floor(end / 2) == i) await new Promise(r => setImmediate(r));
             await runCommand(socket, commands[i]);
         }
 
@@ -158,8 +159,9 @@ export async function handleRequest(data: string, socket: ModSocket) {
                     await new Promise(r => setImmediate(r));
                     strArr.push(`${scriptEvent ? "scriptevent hivemind:" : ""}set add ${scriptEventQuote}${request.id}${scriptEventQuote} ${scriptEventQuote}${chunk}${scriptEventQuote}`);
                 }
-
+                console.log(`got down to run batched`)
                 await runBatched(socket, strArr, 50, 75)
+                console.log(`ran batched`)
                 sendResponse(socket, { id: request.id, status: ServerStatusResponse.Success, message: `Get your data with .getData() (build time: ${((75 * Math.floor(strArr.length / 10)) / 1000).toFixed(2)}s)` }, scriptEvent)
             } catch (e: any) {
                 console.error(e.stack);
