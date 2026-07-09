@@ -69,6 +69,8 @@ function onInitConnection(socket: ModSocket) {
 function onDebugeeConnected(socket: ModSocket) {
     socket.streamParser = new MessageStreamParser();
 
+    // removes nagle whatever stuff
+    socket.socket.setNoDelay(true);
     socket.socket.setKeepAlive(true, 15000);
 
     socket.socket.on("close", () => {

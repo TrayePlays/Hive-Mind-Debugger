@@ -180,7 +180,7 @@ function handleProtocolEvent(socket: ModSocket, protocolCapabilities: ProtocolCa
 }
 
 async function runCommandAsync(socket: ModSocket, command: string) {
-    return new Promise<CommandResponse | undefined>((resolve) => {
+    return new Promise<CommandResponse | undefined>(async (resolve) => {
         const socketStreamParser = new MessageStreamParser();
 
         let dpChecks = 0;
@@ -228,7 +228,7 @@ async function runCommandAsync(socket: ModSocket, command: string) {
             }
         }
 
-        runCommand(socket, command);
+        await runCommand(socket, command);
 
         socketStreamParser.on('message', cb);
 
