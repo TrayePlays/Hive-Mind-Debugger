@@ -171,7 +171,7 @@ export async function onConnectionComplete(protocolVersion: number, socket: ModS
 
 function handleProtocolEvent(socket: ModSocket, protocolCapabilities: ProtocolCapabilities): void {
     socket.protocolCapabilities = protocolCapabilities;
-    if (protocolCapabilities?.plugins[0] == undefined) {
+    if (protocolCapabilities?.plugins?.[0] == undefined) {
         onClose(socket);
         return;
     }
