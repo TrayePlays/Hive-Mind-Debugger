@@ -497,6 +497,14 @@ export async function sendDebuggeeMessage(socket: ModSocket, envelope: unknown):
     const newline = Buffer.from('\n');
     const buffer = Buffer.concat([lengthBuffer, jsonBuffer, newline]);
 
+    if (socket.hivemindData?.name == "BuildSaver") {
+        console.log({
+            writableLength: socket.socket.writableLength,
+            bytesWritten: socket.socket.bytesWritten,
+            destroyed: socket.socket.destroyed
+        });
+    }
+
     if (!socket.socket.write(buffer)) {
         await once(socket.socket, "drain");
     }
