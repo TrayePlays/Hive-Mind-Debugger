@@ -159,10 +159,10 @@ export async function handleRequest(data: string, socket: ModSocket) {
                     await new Promise(r => setImmediate(r));
                     strArr.push(`${scriptEvent ? "scriptevent hivemind:" : ""}set add ${scriptEventQuote}${request.id}${scriptEventQuote} ${scriptEventQuote}${chunk}${scriptEventQuote}`);
                 }
-                console.log(`got down to run batched`)
                 await runBatched(socket, strArr, 50, 75)
-                console.log(`ran batched`)
-                sendResponse(socket, { id: request.id, status: ServerStatusResponse.Success, message: `Get your data with .getData() (build time: ${((75 * Math.floor(strArr.length / 10)) / 1000).toFixed(2)}s)` }, scriptEvent)
+                console.log(`sending response`)
+                sendResponse(socket, { id: request.id, status: ServerStatusResponse.Success, message: `Get your data with .getData()` }, scriptEvent)
+                console.log(`maybe sent response?`)
             } catch (e: any) {
                 console.error(e.stack);
                 sendResponse(socket, { id: request.id, status: ServerStatusResponse.Failure, message: `Failed to get data from website: ${e.message}` }, scriptEvent)
