@@ -159,7 +159,7 @@ export async function handleRequest(data: string, socket: ModSocket) {
                     await new Promise(r => setImmediate(r));
                     strArr.push(`${scriptEvent ? "scriptevent hivemind:" : ""}set add ${scriptEventQuote}${request.id}${scriptEventQuote} ${scriptEventQuote}${chunk}${scriptEventQuote}`);
                 }
-                await runBatched(socket, strArr, 50, 75)
+                await runBatched(socket, strArr, 5, 100)
                 console.log(`sending response`)
                 sendResponse(socket, { id: request.id, status: ServerStatusResponse.Success, message: `Get your data with .getData()` }, scriptEvent)
                 console.log(`maybe sent response?`)
