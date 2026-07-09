@@ -164,7 +164,7 @@ export async function onConnectionComplete(protocolVersion: number, socket: ModS
         console.log(`Socket connected with purpose: ${socket.hivemindData.name} (${totalOnline} Online)`)
 
         messageDiscord(`# API (${socket.hivemindData.name}) Connected\n**[:bee:]** ${totalOnline} Online\n-# There ${onlineCount === 1 ? "is" : "are"} ${onlineCount} Online using the mod`)
-        sendMessage(socket, `§eWorld connected to §6Hive Mind API v${socket.hivemindData.version}! §7(§a${totalOnline} Online§7) ${socket.hivemindData.version != LATEST_VERSION ? "§7(§bUpdate Available§7)" : ""}`);
+        sendMessage(socket, `§eWorld connected to §6Hive Mind API v${socket.hivemindData.version}! §7(§a${totalOnline} Online§7) ${socket.hivemindData.version != LATEST_VERSION ? "§7(§bUpdate Available§7)" : ""}\n§eIf you need any assistance, join the discord: §9discord.gg/GHzNqpZ4Bu`);
         sendMessage(socket, `§7There ${onlineCount === 1 ? "is" : "are"} §2${onlineCount} Online§7 playing the same mod as you`)
     }
 };
