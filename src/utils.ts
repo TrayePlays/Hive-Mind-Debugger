@@ -91,7 +91,7 @@ export function onClose(socket: ModSocket | undefined, noDelete = false) {
     socket.interval = undefined;
     socket.socket.destroy();
     if (socket.sendDiscord && socket.hivemindData) messageDiscord(`# API (${socket.hivemindData.name}) Disconnected\n**[:bee:]** ${serverData.connectedSockets.length} Online`);
-    console.log(`Socket disconnected! ${serverData.connectedSockets.length} Online!`);
+    // console.log(`Socket disconnected! ${serverData.connectedSockets.length} Online!`);
     socket.sendDiscord = undefined;
     socket.hivemindData = undefined;
 }
