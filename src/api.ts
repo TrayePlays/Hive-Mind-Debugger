@@ -15,7 +15,12 @@ type RequestData = HttpRequestData
 
 interface HttpRequestData {
     uri: string,
-    init?: RequestInit
+    init?: RequestInit,
+    extraInfo?: ExtraHttpRequestInfo
+}
+
+interface ExtraHttpRequestInfo {
+    crop?: { left: number, top: number, width: number, height: number };
 }
 
 // More request types later
@@ -105,7 +110,7 @@ export async function handleRequest(data: string, socket: ModSocket) {
                 const res = await fetch(request.data.uri, request.data.init)
 
                 if (!res.ok) {
-                    sendResponse(socket, {status: ServerStatusResponse.Failure, id: request.id, message: `HTTP Error! Status code: ${res.status}`})
+                    sendResponse(socket, { status: ServerStatusResponse.Failure, id: request.id, message: `HTTP Error! Status code: ${res.status}` })
                     return;
                 }
 
@@ -116,7 +121,14 @@ export async function handleRequest(data: string, socket: ModSocket) {
                 } else if (contentType.startsWith("image/")) {
                     const arrBuffer = await res.arrayBuffer();
                     const buffer = Buffer.from(arrBuffer);
-                    const { data, info } = await sharp(buffer).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+                    let image = sharp(buffer).ensureAlpha()
+                    const crop = request.data.extraInfo?.crop
+
+                    if (crop != undefined) {
+                        image = image.extract(crop);
+                    }
+                    
+                    const { data, info } = await image.raw().toBuffer({ resolveWithObject: true });
 
                     dataReceived = {
                         data: Array.from(data),
