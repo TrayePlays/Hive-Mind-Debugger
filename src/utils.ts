@@ -4,9 +4,12 @@ import { handleRequest } from "./api";
 import { serverData } from "./serverData";
 import { messageDiscord } from "./discord";
 import { once } from "events";
+import fs from "fs";
+import path from "path";
 const MAX_REQUESTS_IN_30 = serverData.config.MAX_REQUESTS_IN_30;
 const LATEST_VERSION = serverData.config.LATEST_VERSION;
 const FIRST_VERSION = serverData.config.FIRST_VERSION;
+const STATS_PATH = path.join(__dirname, '../stats.json')
 
 // Set like this to add more types in the future
 type CommandResponse = HivemindData
@@ -155,7 +158,32 @@ export async function onConnectionComplete(protocolVersion: number, socket: ModS
             return;
         }
 
-        if (!socket.isConnected) serverData.connectedSockets.push(socket);
+        if (!socket.isConnected) {
+            fs.readFile(STATS_PATH, 'utf8', (err, data) => {
+                // default stats
+                let stats = { totalConnections: 0 };
+                if (!err) {
+                    try {
+                        stats = JSON.parse(data)
+                    } catch {
+                        console.log(`not json`)
+                    }
+                }
+
+                stats.totalConnections++;
+
+                console.log(`writting`)
+                fs.writeFile(STATS_PATH, JSON.stringify(stats, null, 4), (err) => {
+                    if (err) console.log(`error creating file`);
+                    else console.log(`created file maybe?`);
+                })
+
+                console.log(data);
+                // fs.writeFile(STATS_PATH, JSON.stringify({totalConnections: 0}))
+            });
+            console.log(`new connection success`)
+            serverData.connectedSockets.push(socket)
+        };
         socket.sendDiscord = true;
 
         const totalOnline = serverData.connectedSockets.length;
@@ -245,6 +273,12 @@ export function handleDebugeeEvent(socket: ModSocket, eventMessage: any) {
         for (const stat of evt.stats) {
             if (stat.name == "dynamic_property_values") {
                 const dps = stat.children;
+
+                // const reloadDP = dps.find(dp => dp.name == "hivemindReload");
+                // if (reloadDP) {
+                //     runCommand(socket, `reload`);
+                //     runCommand(socket, ``)
+                // }
 
                 const disconnectDP = dps.find(dp => dp.name == "hivemindDisconnect");
                 if (disconnectDP) {
@@ -498,11 +532,11 @@ export async function sendDebuggeeMessage(socket: ModSocket, envelope: unknown):
     const buffer = Buffer.concat([lengthBuffer, jsonBuffer, newline]);
 
     if (socket.hivemindData?.name == "BuildSaver") {
-        console.log({
-            writableLength: socket.socket.writableLength,
-            bytesWritten: socket.socket.bytesWritten,
-            destroyed: socket.socket.destroyed
-        });
+        // console.log({
+        //     writableLength: socket.socket.writableLength,
+        //     bytesWritten: socket.socket.bytesWritten,
+        //     destroyed: socket.socket.destroyed
+        // });
     }
 
     if (!socket.socket.write(buffer)) {

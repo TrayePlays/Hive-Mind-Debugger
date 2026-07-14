@@ -110,7 +110,8 @@ export async function handleRequest(data: string, socket: ModSocket) {
                 const res = await fetch(request.data.uri, request.data.init)
 
                 if (!res.ok) {
-                    sendResponse(socket, { status: ServerStatusResponse.Failure, id: request.id, message: `HTTP Error! Status code: ${res.status}` })
+                    const errMsg = await res.text()
+                    sendResponse(socket, { status: ServerStatusResponse.Failure, id: request.id, message: `HTTP Error! Status code: ${res.status}`, data: errMsg })
                     return;
                 }
 
