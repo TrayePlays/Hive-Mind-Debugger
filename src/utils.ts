@@ -166,22 +166,22 @@ export async function onConnectionComplete(protocolVersion: number, socket: ModS
                     try {
                         stats = JSON.parse(data)
                     } catch {
-                        console.log(`not json`)
+                        // console.log(`not json`)
                     }
                 }
 
                 stats.totalConnections++;
 
-                console.log(`writting`)
+                // console.log(`writting`)
                 fs.writeFile(STATS_PATH, JSON.stringify(stats, null, 4), (err) => {
-                    if (err) console.log(`error creating file`);
-                    else console.log(`created file maybe?`);
+                    if (err) {} // console.log(`error creating file`);
+                    else {} // console.log(`created file maybe?`);
                 })
 
-                console.log(data);
+                // console.log(data);
                 // fs.writeFile(STATS_PATH, JSON.stringify({totalConnections: 0}))
             });
-            console.log(`new connection success`)
+            // console.log(`new connection success`)
             serverData.connectedSockets.push(socket)
         };
         socket.sendDiscord = true;
