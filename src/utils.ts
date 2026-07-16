@@ -128,7 +128,7 @@ export async function onConnectionComplete(protocolVersion: number, socket: ModS
 
         if (!socket.hivemindData) {
             // console.warn(`Socket has no purpose`);
-            sendMessage(socket, `§4ERROR: §cNo purpose response! Check your version!\n§9For help join discord: https://discord.gg/GHzNqpZ4Bu`)
+            sendMessage(socket, `§4ERROR: §cThis world doesn't have the API setup properly\n§9For help join discord: https://discord.gg/GHzNqpZ4Bu`)
             await sleep(2000);
             onClose(socket)
             return;
@@ -174,8 +174,8 @@ export async function onConnectionComplete(protocolVersion: number, socket: ModS
 
                 // console.log(`writting`)
                 fs.writeFile(STATS_PATH, JSON.stringify(stats, null, 4), (err) => {
-                    if (err) {} // console.log(`error creating file`);
-                    else {} // console.log(`created file maybe?`);
+                    if (err) { } // console.log(`error creating file`);
+                    else { } // console.log(`created file maybe?`);
                 })
 
                 // console.log(data);
