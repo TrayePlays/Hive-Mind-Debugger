@@ -27,7 +27,9 @@ function onInitConnection(socket: ModSocket) {
     };
     const earlyErrorHandler = (e: Error) => {
         console.warn("Early connection error before handshake:", e.message);
+        onClose(socket);
     };
+
     socket.socket.on('error', earlyErrorHandler);
 
     const checkHandshake = (buffer: Buffer) => {
@@ -86,6 +88,7 @@ function onDebugeeConnected(socket: ModSocket) {
 
     socket.socket.on('error', (e: Error) => {
         console.warn(e.stack);
+        onClose(socket);
     });
 
     socket.socket.pipe(socket.streamParser as any);

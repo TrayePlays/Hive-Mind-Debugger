@@ -74,7 +74,7 @@ export function onReload(socket: ModSocket) {
     while ((chunk = raw.read()) !== null) { }
 }
 
-export function onClose(socket: ModSocket | undefined, noDelete = false) {
+export function onClose(socket: ModSocket | undefined) {
     if (!socket) return;
     if (socket.streamParser != undefined) {
         socket.socket.unpipe(socket.streamParser as any)
@@ -354,6 +354,8 @@ export class ModSocket {
     public requests = new Map<number, any>();
     public socket: Socket;
     public version: number;
+    public isWriting: boolean;
+    public writeQueue: Buffer[]
     public interval?: NodeJS.Timeout;
     public isConnected: boolean;
     protocolCapabilities?: ProtocolCapabilities;
@@ -373,6 +375,8 @@ export class ModSocket {
             tokens: MAX_REQUESTS_IN_30,
             lastRefill: Date.now()
         }
+        this.writeQueue = []
+        this.isWriting = false
         this.protocolCapabilities = connectionData.protocolCapabilities
         this.isConnected = connectionData.isConnected ?? false
         this.version = 0
@@ -498,6 +502,20 @@ interface PendingDebuggerRequest {
     timeout?: ReturnType<typeof setTimeout>;
 }
 
+async function safeWrite(socket: ModSocket, buffer: Buffer) {
+    socket.writeQueue.push(buffer);
+    if (socket.isWriting) return;
+
+    socket.isWriting = true;
+    while (socket.writeQueue.length > 0) {
+        const nextBuffer = socket.writeQueue.shift();
+        if (nextBuffer && !socket.socket.write(nextBuffer)) {
+            await once(socket.socket, "drain"); 
+        }
+    }
+    socket.isWriting = false;
+}
+
 export async function sendDebuggeeMessage(socket: ModSocket, envelope: unknown): Promise<void> {
     if (!socket || !socket.socket.write || socket.socket.destroyed || !socket.socket.writable) {
         onClose(socket);
@@ -534,9 +552,7 @@ export async function sendDebuggeeMessage(socket: ModSocket, envelope: unknown):
         // });
     }
 
-    if (!socket.socket.write(buffer)) {
-        await once(socket.socket, "drain");
-    }
+    await safeWrite(socket, buffer);
 }
 
 export class RequestManager {
