@@ -6,3 +6,4 @@ deploy.sh
 .env
 *.exe
 ignored/
+stats.json
