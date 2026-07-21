@@ -3,7 +3,6 @@ import { serverData } from "./serverData";
 
 export function messageDiscord(message: string) {
     if (!serverData.discordSocket) return;
-    console.log(`wrote ${JSON.stringify({ message, type: "send" }, null, 4)} to discord`)
     serverData.discordSocket.write(JSON.stringify({ message, type: "send" }));
 }
 
