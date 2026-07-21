@@ -18,12 +18,16 @@ interface ServerData {
 interface ServerStats {
     totalConnections: number;
     online: number;
+    hourlyConnections: Record<string, number>;
+    dailyConnections: Record<string, number>;
 }
 
 export const serverData: ServerData = {
     stats: {
         totalConnections: 0,
-        online: 0
+        online: 0,
+        hourlyConnections: {},
+        dailyConnections: {}
     },
     connectedSockets: [],
     discordSocket: undefined,

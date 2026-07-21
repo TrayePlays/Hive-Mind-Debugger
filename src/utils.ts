@@ -160,13 +160,43 @@ export async function onConnectionComplete(protocolVersion: number, socket: ModS
 
         if (!socket.isConnected) {
             fs.readFile(STATS_PATH, 'utf8', (err, data) => {
-                let stats = { totalConnections: 0 };
+                let stats: { totalConnections: number, hourlyConnections: Record<string, number>, dailyConnections: Record<string, number> } = { totalConnections: 0, hourlyConnections: {}, dailyConnections: {} };
                 if (!err) {
                     try {
                         stats = JSON.parse(data)
-                    } catch {}
+                    } catch { }
                 }
 
+                const now = new Date()
+
+                const hour = now.getUTCHours();
+                const hour12 = hour % 12 || 12;
+                const amOrPM = hour >= 12 ? 'PM' : 'AM';
+                const paddedHour = hour12.toString().padStart(2, '0');
+                const hourKey = `${paddedHour}:00 ${amOrPM}`
+
+                if (stats && stats.hourlyConnections && stats.hourlyConnections[hourKey]) {
+                    serverData.stats.hourlyConnections[hourKey] = stats.hourlyConnections[hourKey];
+                }
+                else if (!serverData.stats.hourlyConnections[hourKey]) {
+                    serverData.stats.hourlyConnections[hourKey] = 0;
+                }
+
+                serverData.stats.hourlyConnections[hourKey]++;
+
+                const year = now.getUTCFullYear();
+                const month = (now.getUTCMonth() + 1).toString().padStart(2, '0');
+                const day = now.getUTCDate().toString().padStart(2, '0');
+                const dateKey = `${month}/${day}/${year}`;
+
+                if (!serverData.stats.dailyConnections[dateKey]) {
+                    serverData.stats.dailyConnections[dateKey] = 0;
+                }
+
+                serverData.stats.dailyConnections[dateKey]++;
+
+                stats.hourlyConnections = serverData.stats.hourlyConnections
+                stats.dailyConnections = serverData.stats.dailyConnections
                 stats.totalConnections++;
 
                 fs.writeFile(STATS_PATH, JSON.stringify(stats, null, 4), (err) => {
@@ -510,7 +540,7 @@ async function safeWrite(socket: ModSocket, buffer: Buffer) {
     while (socket.writeQueue.length > 0) {
         const nextBuffer = socket.writeQueue.shift();
         if (nextBuffer && !socket.socket.write(nextBuffer)) {
-            await once(socket.socket, "drain"); 
+            await once(socket.socket, "drain");
         }
     }
     socket.isWriting = false;
