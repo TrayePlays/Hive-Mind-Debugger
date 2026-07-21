@@ -128,7 +128,7 @@ export async function onConnectionComplete(protocolVersion: number, socket: ModS
 
         if (!socket.hivemindData) {
             // console.warn(`Socket has no purpose`);
-            sendMessage(socket, `§4ERROR: §cThis world doesn't have Hive Mind API setup properly\n§9For help join discord: https://discord.gg/GHzNqpZ4Bu`)
+            sendMessage(socket, `§4ERROR: §cThis world doesn't have Hive Mind API setup properly.\n§9For help join discord: https://discord.gg/GHzNqpZ4Bu`)
             await sleep(2000);
             onClose(socket)
             return;
@@ -160,33 +160,28 @@ export async function onConnectionComplete(protocolVersion: number, socket: ModS
 
         if (!socket.isConnected) {
             fs.readFile(STATS_PATH, 'utf8', (err, data) => {
-                // default stats
                 let stats = { totalConnections: 0 };
                 if (!err) {
                     try {
                         stats = JSON.parse(data)
-                    } catch {
-                        // console.log(`not json`)
-                    }
+                    } catch {}
                 }
 
                 stats.totalConnections++;
 
-                // console.log(`writting`)
                 fs.writeFile(STATS_PATH, JSON.stringify(stats, null, 4), (err) => {
-                    if (err) { } // console.log(`error creating file`);
-                    else { } // console.log(`created file maybe?`);
+                    if (err) { }
+                    else { }
                 })
 
-                // console.log(data);
-                // fs.writeFile(STATS_PATH, JSON.stringify({totalConnections: 0}))
+                serverData.stats.totalConnections = stats.totalConnections;
             });
-            // console.log(`new connection success`)
             serverData.connectedSockets.push(socket)
         };
         socket.sendDiscord = true;
 
         const totalOnline = serverData.connectedSockets.length;
+        serverData.stats.online = totalOnline;
         const onlineCount = getSocketsWithSamePurpose(socket.hivemindData.name)
 
         console.log(`Socket connected with purpose: ${socket.hivemindData.name} (${totalOnline} Online)`)

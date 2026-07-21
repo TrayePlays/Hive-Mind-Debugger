@@ -11,10 +11,20 @@ interface Config {
 interface ServerData {
     connectedSockets: ModSocket[]
     discordSocket: Socket | undefined
-    config: Config 
+    config: Config;
+    stats: ServerStats;
+}
+
+interface ServerStats {
+    totalConnections: number;
+    online: number;
 }
 
 export const serverData: ServerData = {
+    stats: {
+        totalConnections: 0,
+        online: 0
+    },
     connectedSockets: [],
     discordSocket: undefined,
     config: loadConfig()

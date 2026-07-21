@@ -1,6 +1,6 @@
 import { Socket } from "net";
 import { DebuggeeResponseEnvelope, handleDebugeeEvent, MessageStreamParser, ModSocket, onClose, onConnectionComplete, ProtocolCapabilities } from "./utils";
-import { onDiscordClose } from "./discord";
+import { onDiscordClose, onDiscordMessage } from "./discord";
 import { serverData } from "./serverData";
 import * as dotenv from "dotenv"
 import path from "path";
@@ -47,6 +47,9 @@ function onInitConnection(socket: ModSocket) {
             socket.socket.on("close", () => {
                 onDiscordClose(socket.socket);
             });
+            socket.socket.on('data', (buffer: Buffer) => {
+                onDiscordMessage(buffer)
+            })
             socket.socket.off('data', checkHandshake);
             serverData.discordSocket = socket.socket;
             return;
