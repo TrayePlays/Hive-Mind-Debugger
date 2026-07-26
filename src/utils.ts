@@ -99,6 +99,12 @@ export function onClose(socket: ModSocket | undefined) {
     socket.hivemindData = undefined;
 }
 
+interface StatsSchema {
+    totalConnections: number;
+    hourlyConnections: { day: string; hours: Record<string, number> }[];
+    dailyConnections: Record<string, number>;
+}
+
 export async function onConnectionComplete(protocolVersion: number, socket: ModSocket, targetModuleUuid?: string, passcode?: string) {
     await sendDebuggeeMessage(socket, {
         type: 'protocol',
@@ -159,53 +165,53 @@ export async function onConnectionComplete(protocolVersion: number, socket: ModS
         }
 
         if (!socket.isConnected) {
+            if (!fs.existsSync(STATS_PATH)) {
+                fs.writeFile(STATS_PATH, JSON.stringify({ totalConnections: 0, hourlyConnections: [], dailyConnections: {} }, null, 4), (err) => {
+                    if (err) console.log(`couldnt create stats fsr?`)
+                })
+            }
             fs.readFile(STATS_PATH, 'utf8', (err, data) => {
-                let stats: { totalConnections: number, hourlyConnections: Record<string, number>, dailyConnections: Record<string, number> } = { totalConnections: 0, hourlyConnections: {}, dailyConnections: {} };
-                if (!err) {
-                    try {
-                        stats = JSON.parse(data)
-                    } catch { }
+                if (err) {
+                    console.error(`Error reading file: ${err.message}`);
+                    return;
+                }
+                let stats: StatsSchema;
+                try {
+                    stats = JSON.parse(data);
+                } catch (e) {
+                    return;
                 }
 
-                const now = new Date()
-
+                const now = new Date();
                 const hour = now.getUTCHours();
                 const hour12 = hour % 12 || 12;
                 const amOrPM = hour >= 12 ? 'PM' : 'AM';
                 const paddedHour = hour12.toString().padStart(2, '0');
-                const hourKey = `${paddedHour}:00 ${amOrPM}`
-
-                if (stats && stats.hourlyConnections && stats.hourlyConnections[hourKey]) {
-                    serverData.stats.hourlyConnections[hourKey] = stats.hourlyConnections[hourKey];
-                }
-                else if (!serverData.stats.hourlyConnections[hourKey]) {
-                    serverData.stats.hourlyConnections[hourKey] = 0;
-                }
-
-                serverData.stats.hourlyConnections[hourKey]++;
-
+                const hourKey = `${paddedHour}:00 ${amOrPM}`;
                 const year = now.getUTCFullYear();
                 const month = (now.getUTCMonth() + 1).toString().padStart(2, '0');
                 const day = now.getUTCDate().toString().padStart(2, '0');
                 const dateKey = `${month}/${day}/${year}`;
 
-                if (!serverData.stats.dailyConnections[dateKey]) {
-                    serverData.stats.dailyConnections[dateKey] = 0;
+                let targetDay = stats.hourlyConnections.find(d => d.day === dateKey) ?? undefined;
+                if (!targetDay) {
+                    targetDay = { day: dateKey, hours: {} };
+                    stats.hourlyConnections.push(targetDay);
                 }
 
-                serverData.stats.dailyConnections[dateKey]++;
-
-                stats.hourlyConnections = serverData.stats.hourlyConnections
-                stats.dailyConnections = serverData.stats.dailyConnections
+                targetDay.hours[hourKey] = (targetDay.hours[hourKey] || 0) + 1;
+                stats.dailyConnections[dateKey] = (stats.dailyConnections[dateKey] || 0) + 1;
                 stats.totalConnections++;
 
-                fs.writeFile(STATS_PATH, JSON.stringify(stats, null, 4), (err) => {
-                    if (err) { }
-                    else { }
-                })
-
-                serverData.stats.totalConnections = stats.totalConnections;
+                fs.writeFile(STATS_PATH, JSON.stringify(stats, null, 4), (writeErr) => {
+                    if (!writeErr) {
+                        serverData.stats = stats as any;
+                    } else {
+                        console.error(`Error writing stats: ${writeErr.message}`);
+                    }
+                });
             });
+
             serverData.connectedSockets.push(socket)
         };
         socket.sendDiscord = true;
@@ -252,7 +258,6 @@ async function runCommandAsync(socket: ModSocket, command: string) {
 
         const cb = (envelope: any) => {
             if (envelope.type == "event" && envelope.event.type == "StatEvent2") {
-
                 const evt = envelope.event as StatEvent2
                 for (const stat of evt.stats) {
                     if (stat.name == "dynamic_property_values") {
@@ -459,6 +464,7 @@ export interface MinecraftCapabilities {
 // 6 - breakpoints as request, MC can reject
 // 7 - support for debugger requests, MC can reject or respond with args
 // 8 - New serialization tech (use Cereal)
+// 9 - Added support for MC C++/native driven stat descriptors/schemas for UI display
 
 export enum ProtocolVersion {
     _Unknown = 0,
@@ -470,6 +476,7 @@ export enum ProtocolVersion {
     SupportBreakpointsAsRequest = 6,
     SupportDebuggerRequests = 7,
     SupportCerealSerialization = 8,
+    SupportNativeDescriptors = 9,
 }
 
 export interface PluginDetails {
@@ -494,6 +501,7 @@ export enum IncomingEventType {
     Schema = 'SchemaEvent',
     ProfilerCapture = 'ProfilerCapture',
     DebuggeeResponse = 'debuggee-response',
+    DiagnosticsDescriptor = 'SchemaEvent',
 }
 
 export enum OutgoingEventType {

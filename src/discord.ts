@@ -19,7 +19,7 @@ export function onDiscordMessage(buffer: Buffer) {
     const parsed = JSON.parse(rawString);
     if (parsed.type == "get") {
         if (parsed.name == "stats") {
-            serverData.discordSocket.write(JSON.stringify({type: "stats", data: serverData.stats}));
+            serverData.discordSocket.write(JSON.stringify({type: "stats", data: serverData.stats, for: parsed.for}));
         }
     }
     if (parsed.type == "tell") {
