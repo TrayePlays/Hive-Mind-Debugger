@@ -252,7 +252,7 @@ export async function handleRequestAsync(data: string, socket: ModSocket) {
                 if (scriptEvent) str = JSON.stringify(dataReceived);
 
                 // 2074 max length of command
-                const maxChunk = 1000 - request.id.length - (scriptEvent ? 21 : 0);
+                const maxChunk = 2000 - request.id.length - (scriptEvent ? 21 : 0);
                 let i = 0;
                 while (i < str.length) {
                     let end = Math.min(i + maxChunk, str.length);
@@ -289,22 +289,22 @@ export async function handleRequestAsync(data: string, socket: ModSocket) {
         }
         if (request.type == RequestTypes.MidiRequest) {
             if (!checkMidiLimit(socket)) {
-                sendResponse(socket, { status: ServerStatusResponse.Failure, id: request.id, message: `You are midi limited!` }, scriptEvent)
+                await sendResponse(socket, { status: ServerStatusResponse.Failure, id: request.id, message: `You are midi limited!` }, scriptEvent)
                 return;
             }
             if (request.data.uri == undefined) {
-                sendResponse(socket, { status: ServerStatusResponse.Failure, id: request.id, message: "Unknown uri!" }, scriptEvent)
+                await sendResponse(socket, { status: ServerStatusResponse.Failure, id: request.id, message: "Unknown uri!" }, scriptEvent)
                 return;
             }
             try {
                 const regex = /^https?:\/\/(?:www\.)?onlinesequencer\.net\/\d+$/;
                 if (!regex.test(request.data.uri)) {
-                    sendResponse(socket, { status: ServerStatusResponse.Failure, id: request.id, message: "Invalid URI has to be onlinesequencer.net/(id)" }, scriptEvent)
+                    await sendResponse(socket, { status: ServerStatusResponse.Failure, id: request.id, message: "Invalid URI has to be onlinesequencer.net/(id)" }, scriptEvent)
                     return;
                 }
                 const res = await getOnlineSequencerData(request.data.uri);
                 if (res == null) {
-                    sendResponse(socket, { status: ServerStatusResponse.Failure, id: request.id, message: "Failed to get data from onlinesequencer link" }, scriptEvent)
+                    await sendResponse(socket, { status: ServerStatusResponse.Failure, id: request.id, message: "Failed to get data from onlinesequencer link" }, scriptEvent)
                     return;
                 }
                 let dataReceived;
@@ -315,38 +315,41 @@ export async function handleRequestAsync(data: string, socket: ModSocket) {
                 }
                 let str = JSON.stringify(JSON.stringify(dataReceived)).slice(1, -1);
                 if (scriptEvent) str = JSON.stringify(dataReceived);
+
                 // 2074 max length of command
                 const maxChunk = 2000 - request.id.length - (scriptEvent ? 21 : 0);
-                const chunks = [];
-
                 let i = 0;
                 while (i < str.length) {
-                    if (i % 50000 === 0) await new Promise(r => setImmediate(r));
-                    let end = i + maxChunk;
-
+                    let end = Math.min(i + maxChunk, str.length);
                     let backslashCount = 0;
                     while (end - 1 - backslashCount >= i && str[end - 1 - backslashCount] === '\\') {
                         backslashCount++;
                     }
-
-                    if (backslashCount % 2 === 1) {
+                    if (backslashCount % 2 === 1 && end < str.length) {
                         end++;
                     }
-
-                    chunks.push(str.slice(i, end));
+                    const chunk = str.slice(i, end);
+                    const command = `${scriptEvent ? "scriptevent hivemind:" : ""}set add ${scriptEventQuote}${request.id}${scriptEventQuote} ${scriptEventQuote}${chunk}${scriptEventQuote}`;
+                    if (socket.hivemindData?.name == "SongPlayer") {
+                        console.log({
+                            id: request.id,
+                            chunk: i,
+                            total: str.length,
+                            queue: socket.writeQueue.length,
+                            writable: socket.socket.writable,
+                            destroyed: socket.socket.destroyed,
+                            writableLength: socket.socket.writableLength
+                        });
+                    }
+                    await runCommand(socket, command);
+                    await sleep(10);
                     i = end;
                 }
 
-                let strArr: string[] = [];
-                for (const chunk of chunks) {
-                    await new Promise(r => setImmediate(r));
-                    strArr.push(`${scriptEvent ? "scriptevent hivemind:" : ""}set add ${scriptEventQuote}${request.id}${scriptEventQuote} ${scriptEventQuote}${chunk}${scriptEventQuote}`);
-                }
-                await runBatched(socket, strArr, 10, 100)
-                sendResponse(socket, { id: request.id, status: ServerStatusResponse.Success, message: `Get your data with .getData()` }, scriptEvent)
+                await sendResponse(socket, { id: request.id, status: ServerStatusResponse.Success, message: `Get your data with .getData()` }, scriptEvent)
             } catch (e: any) {
                 console.error(e.stack);
-                sendResponse(socket, { id: request.id, status: ServerStatusResponse.Failure, message: `Failed to get data from website: ${e.message}` }, scriptEvent)
+                await sendResponse(socket, { id: request.id, status: ServerStatusResponse.Failure, message: `Failed to get data from website: ${e.message}` }, scriptEvent)
             }
         }
     } catch (e: any) {
