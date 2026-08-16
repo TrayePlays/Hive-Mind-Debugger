@@ -100,7 +100,17 @@ function checkMidiLimit(socket: ModSocket): boolean {
     return true;
 }
 
-export async function handleRequest(data: string, socket: ModSocket) {
+export function handleRequest(data: string, socket: ModSocket) {
+    const previous = socket.requestQueue;
+
+    socket.requestQueue = previous.then(async () => {
+        await handleRequestAsync(data, socket);
+    }).catch((e: any) => {
+        console.error(e.stack);
+    });
+}
+
+export async function handleRequestAsync(data: string, socket: ModSocket) {
     try {
         if (socket.hivemindData?.name == "SongPlayer") console.log("HANDLE REQUEST CALLED", Date.now());
         const requestStr = data

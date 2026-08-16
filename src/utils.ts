@@ -386,6 +386,7 @@ export function sendMessage(socket: ModSocket, message: string) {
 export class ModSocket {
     public requestManager: RequestManager | undefined;
     public requests = new Map<number, any>();
+    public requestQueue: Promise<void> = Promise.resolve();
     public socket: Socket;
     public version: number;
     public isWriting: boolean;
