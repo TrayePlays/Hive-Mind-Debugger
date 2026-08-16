@@ -100,14 +100,49 @@ function checkMidiLimit(socket: ModSocket): boolean {
     return true;
 }
 
-export function handleRequest(data: string, socket: ModSocket) {
-    const previous = socket.requestQueue;
+async function queueRequest(socket: ModSocket, request: () => Promise<void>): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+        socket.requestQueue.push(async () => {
+            try {
+                await request();
+                resolve();
+            } catch (err) {
+                reject(err);
+            }
+        });
 
-    socket.requestQueue = previous.then(async () => {
-        await handleRequestAsync(data, socket);
-    }).catch((e: any) => {
-        console.error(e.stack);
+        processRequestQueue(socket);
     });
+}
+
+async function processRequestQueue(socket: ModSocket): Promise<void> {
+    if (socket.processingRequests) return;
+
+    socket.processingRequests = true;
+
+    try {
+        while (socket.requestQueue.length > 0) {
+            const request = socket.requestQueue.shift();
+
+            if (!request) continue;
+
+            try {
+                await request();
+            } catch (err) {
+                console.error("Request failed:", err);
+            }
+        }
+    } finally {
+        socket.processingRequests = false;
+
+        if (socket.requestQueue.length > 0) {
+            processRequestQueue(socket);
+        }
+    }
+}
+
+export function handleRequest(data: string, socket: ModSocket) {
+    queueRequest(socket, () => handleRequestAsync(data, socket));
 }
 
 export async function handleRequestAsync(data: string, socket: ModSocket) {
@@ -242,6 +277,7 @@ export async function handleRequestAsync(data: string, socket: ModSocket) {
                         });
                     }
                     await runCommand(socket, command);
+                    await sleep(50);
                     i = end;
                 }
 
