@@ -218,6 +218,7 @@ export async function handleRequest(data: string, socket: ModSocket) {
                     const command = `${scriptEvent ? "scriptevent hivemind:" : ""}set add ${scriptEventQuote}${request.id}${scriptEventQuote} ${scriptEventQuote}${chunk}${scriptEventQuote}`;
                     if (socket.hivemindData?.name == "SongPlayer") {
                         console.log({
+                            id: request.id,
                             chunk: i,
                             total: str.length,
                             queue: socket.writeQueue.length,
