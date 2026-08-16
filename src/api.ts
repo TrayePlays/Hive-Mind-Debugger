@@ -277,7 +277,7 @@ export async function handleRequestAsync(data: string, socket: ModSocket) {
                         });
                     }
                     await runCommand(socket, command);
-                    await sleep(10);
+                    await sleep(20);
                     i = end;
                 }
 
