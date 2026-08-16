@@ -63,8 +63,20 @@ async function runBatched(socket: ModSocket, commands: string[], batchSize = 1, 
 }
 
 function checkRateLimit(socket: ModSocket): boolean {
+    if (!socket || socket.socket.destroyed || !socket.socket.writable) {
+        return false;
+    }
+
     const now = Date.now();
-    const bucket = socket.rateLimit!;
+
+    if (!socket.rateLimit) {
+        socket.rateLimit = {
+            tokens: MAX_REQUESTS_IN_30,
+            lastRefill: now
+        };
+    }
+
+    const bucket = socket.rateLimit;
 
     const refillRate = MAX_REQUESTS_IN_30 / 30000;
     const elapsed = now - bucket.lastRefill;
@@ -82,8 +94,20 @@ function checkRateLimit(socket: ModSocket): boolean {
 }
 
 function checkMidiLimit(socket: ModSocket): boolean {
+    if (!socket || socket.socket.destroyed || !socket.socket.writable) {
+        return false;
+    }
+    
     const now = Date.now();
-    const bucket = socket.midiLimit!;
+
+    if (!socket.midiLimit) {
+        socket.midiLimit = {
+            tokens: MAX_MIDI_IN_5,
+            lastRefill: now
+        };
+    }
+
+    const bucket = socket.midiLimit;
 
     const refillRate = MAX_MIDI_IN_5 / 5000;
     const elapsed = now - bucket.lastRefill;

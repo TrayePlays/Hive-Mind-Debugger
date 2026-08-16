@@ -10,7 +10,7 @@ dotenv.config({
     quiet: true
 });
 
-export function start(socket: Socket, connectionData: {isConnected?: boolean, protocolCapabilities?: ProtocolCapabilities}) {
+export function start(socket: Socket, connectionData: { isConnected?: boolean, protocolCapabilities?: ProtocolCapabilities }) {
     const modSocket = new ModSocket(socket, connectionData);
     onInitConnection(modSocket);
 }
@@ -78,7 +78,17 @@ function onDebugeeConnected(socket: ModSocket) {
     socket.socket.setNoDelay(true);
     socket.socket.setKeepAlive(true, 15000);
 
-    socket.socket.on("close", () => {
+    socket.socket.on("close", (hadError) => {
+        if (socket.hivemindData?.name == "SongPlayer") {
+            console.error("DEBUGGEE SOCKET CLOSED", {
+                hadError,
+                destroyed: socket.socket.destroyed,
+                writable: socket.socket.writable,
+                readable: socket.socket.readable,
+                bytesWritten: socket.socket.bytesWritten,
+                bytesRead: socket.socket.bytesRead
+            });
+        }
         onClose(socket);
     });
 
