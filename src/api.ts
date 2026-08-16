@@ -216,7 +216,7 @@ export async function handleRequest(data: string, socket: ModSocket) {
                     }
                     const chunk = str.slice(i, end);
                     const command = `${scriptEvent ? "scriptevent hivemind:" : ""}set add ${scriptEventQuote}${request.id}${scriptEventQuote} ${scriptEventQuote}${chunk}${scriptEventQuote}`;
-                    await runBatched(socket, [command], 75, 500);
+                    await runBatched(socket, [command], 10, 100);
                     i = end;
                     if (i % 50000 === 0) await new Promise(r => setImmediate(r));
                 }
@@ -282,7 +282,7 @@ export async function handleRequest(data: string, socket: ModSocket) {
                     await new Promise(r => setImmediate(r));
                     strArr.push(`${scriptEvent ? "scriptevent hivemind:" : ""}set add ${scriptEventQuote}${request.id}${scriptEventQuote} ${scriptEventQuote}${chunk}${scriptEventQuote}`);
                 }
-                await runBatched(socket, strArr, 75, 500)
+                await runBatched(socket, strArr, 10, 100)
                 sendResponse(socket, { id: request.id, status: ServerStatusResponse.Success, message: `Get your data with .getData()` }, scriptEvent)
             } catch (e: any) {
                 console.error(e.stack);

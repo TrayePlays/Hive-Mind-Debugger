@@ -550,15 +550,22 @@ interface PendingDebuggerRequest {
 async function safeWrite(socket: ModSocket, buffer: Buffer) {
     socket.writeQueue.push(buffer);
     if (socket.isWriting) return;
-
     socket.isWriting = true;
-    while (socket.writeQueue.length > 0) {
-        const nextBuffer = socket.writeQueue.shift();
-        if (nextBuffer && !socket.socket.write(nextBuffer)) {
-            await once(socket.socket, "drain");
+
+    try {
+        while (socket.writeQueue.length > 0) {
+            const nextBuffer = socket.writeQueue.shift();
+            if (!nextBuffer || socket.socket.destroyed) continue;
+            if (!socket.socket.write(nextBuffer)) {
+                await Promise.race([
+                    once(socket.socket, "drain"),
+                    once(socket.socket, "close")
+                ]);
+            }
         }
+    } finally {
+        socket.isWriting = false;
     }
-    socket.isWriting = false;
 }
 
 export async function sendDebuggeeMessage(socket: ModSocket, envelope: unknown): Promise<void> {
