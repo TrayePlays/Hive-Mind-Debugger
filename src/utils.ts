@@ -558,26 +558,23 @@ async function processWriteQueue(socket: ModSocket): Promise<void> {
     socket.isWriting = true;
 
     try {
-        while (socket.writeQueue.length > 0) {
-            if (socket.socket.destroyed || !socket.socket.writable) {
-                const error = new Error("Socket is closed");
-
-                for (const item of socket.writeQueue) {
-                    item.reject(error);
-                }
-
-                socket.writeQueue.length = 0;
-                return;
-            }
-
-            const item = socket.writeQueue.shift();
-            if (!item) continue;
+        while (socket.writeQueue.length > 0 && !socket.socket.destroyed && socket.socket.writable) {
+            const item = socket.writeQueue[0];
 
             try {
                 const canContinue = socket.socket.write(item.buffer);
 
+                socket.writeQueue.shift();
+                item.resolve();
+
                 if (!canContinue) {
                     await new Promise<void>((resolve, reject) => {
+                        const cleanup = () => {
+                            socket.socket.off("drain", onDrain);
+                            socket.socket.off("close", onClose);
+                            socket.socket.off("error", onError);
+                        };
+
                         const onDrain = () => {
                             cleanup();
                             resolve();
@@ -585,26 +582,30 @@ async function processWriteQueue(socket: ModSocket): Promise<void> {
 
                         const onClose = () => {
                             cleanup();
-                            reject(new Error("Socket closed while writing"));
+                            reject(new Error("Socket closed while waiting for drain"));
                         };
 
-                        const cleanup = () => {
-                            socket.socket.off("drain", onDrain);
-                            socket.socket.off("close", onClose);
+                        const onError = (err: Error) => {
+                            cleanup();
+                            reject(err);
                         };
 
                         socket.socket.once("drain", onDrain);
                         socket.socket.once("close", onClose);
+                        socket.socket.once("error", onError);
                     });
                 }
-
-                item.resolve();
             } catch (err: any) {
+                socket.writeQueue.shift();
                 item.reject(err);
             }
         }
     } finally {
         socket.isWriting = false;
+
+        if (socket.writeQueue.length > 0 && !socket.socket.destroyed && socket.socket.writable) {
+            processWriteQueue(socket);
+        }
     }
 }
 
