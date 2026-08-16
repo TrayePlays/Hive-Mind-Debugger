@@ -102,8 +102,12 @@ function checkMidiLimit(socket: ModSocket): boolean {
 
 export async function handleRequest(data: string, socket: ModSocket) {
     try {
+        if (socket.hivemindData?.name == "SongPlayer") console.log("HANDLE REQUEST CALLED", Date.now());
         const requestStr = data
         const request = JSON.parse(requestStr) as Request
+
+        if (socket.hivemindData?.name == "SongPlayer") console.log("HANDLE REQUEST", request.id, Date.now());
+
         const scriptEvent = request.scriptEvent
         const scriptEventQuote = scriptEvent ? "" : `"`
         runCommand(socket, `${scriptEvent ? "scriptevent hivemind:" : ""}set remove ${scriptEventQuote}${request.id}${scriptEventQuote} hivemindRequest${request.id}`)
@@ -129,7 +133,7 @@ export async function handleRequest(data: string, socket: ModSocket) {
                 return;
             }
             try {
-                const res = await fetch(request.data.uri, request.data.init)
+                const res = await fetch(request.data.uri, request.data.init);
                 if (!res.ok) {
                     const errMsg = await res.text()
                     sendResponse(socket, { status: ServerStatusResponse.Failure, id: request.id, message: `HTTP Error! Status code: ${res.status}`, data: errMsg }, scriptEvent)
