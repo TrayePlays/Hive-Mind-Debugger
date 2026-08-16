@@ -216,9 +216,9 @@ export async function handleRequest(data: string, socket: ModSocket) {
                     }
                     const chunk = str.slice(i, end);
                     const command = `${scriptEvent ? "scriptevent hivemind:" : ""}set add ${scriptEventQuote}${request.id}${scriptEventQuote} ${scriptEventQuote}${chunk}${scriptEventQuote}`;
-                    await runBatched(socket, [command], 10, 100);
+                    await runCommand(socket, command);
+                    await sleep(500);
                     i = end;
-                    if (i % 50000 === 0) await new Promise(r => setImmediate(r));
                 }
 
                 sendResponse(socket, { id: request.id, status: ServerStatusResponse.Success, message: `Get your data with .getData()` }, scriptEvent)
