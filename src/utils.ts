@@ -596,6 +596,8 @@ async function processWriteQueue(socket: ModSocket): Promise<void> {
                         socket.socket.once("error", onError);
                     });
                 }
+
+                await sleep(10);
             } catch (err: any) {
                 socket.writeQueue.shift();
                 item.reject(err);
