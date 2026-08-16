@@ -120,33 +120,33 @@ export async function handleRequestAsync(data: string, socket: ModSocket) {
 
         const scriptEvent = request.scriptEvent
         const scriptEventQuote = scriptEvent ? "" : `"`
-        runCommand(socket, `${scriptEvent ? "scriptevent hivemind:" : ""}set remove ${scriptEventQuote}${request.id}${scriptEventQuote} hivemindRequest${request.id}`)
+        await runCommand(socket, `${scriptEvent ? "scriptevent hivemind:" : ""}set remove ${scriptEventQuote}${request.id}${scriptEventQuote} hivemindRequest${request.id}`)
 
         if (request.id == undefined) {
-            sendResponse(socket, { status: ServerStatusResponse.Failure, id: "ERROR", message: "No request id!" }, scriptEvent)
+            await sendResponse(socket, { status: ServerStatusResponse.Failure, id: "ERROR", message: "No request id!" }, scriptEvent)
             return;
         }
         if (!Object.values(RequestTypes).includes(request?.type)) {
-            sendResponse(socket, { status: ServerStatusResponse.Failure, id: request.id, message: "Unknown request type!" }, scriptEvent)
+            await sendResponse(socket, { status: ServerStatusResponse.Failure, id: request.id, message: "Unknown request type!" }, scriptEvent)
             return;
         };
 
-        sendResponse(socket, { status: ServerStatusResponse.Ran, id: request.id }, scriptEvent);
+        await sendResponse(socket, { status: ServerStatusResponse.Ran, id: request.id }, scriptEvent);
 
         if (request.type == RequestTypes.HttpRequest) {
             if (!checkRateLimit(socket)) {
-                sendResponse(socket, { status: ServerStatusResponse.Failure, id: request.id, message: `You are rate limited!` }, scriptEvent)
+                await sendResponse(socket, { status: ServerStatusResponse.Failure, id: request.id, message: `You are rate limited!` }, scriptEvent)
                 return;
             }
             if (request.data.uri == undefined) {
-                sendResponse(socket, { status: ServerStatusResponse.Failure, id: request.id, message: "Unknown uri!" }, scriptEvent)
+                await sendResponse(socket, { status: ServerStatusResponse.Failure, id: request.id, message: "Unknown uri!" }, scriptEvent)
                 return;
             }
             try {
                 const res = await fetch(request.data.uri, request.data.init);
                 if (!res.ok) {
                     const errMsg = await res.text()
-                    sendResponse(socket, { status: ServerStatusResponse.Failure, id: request.id, message: `HTTP Error! Status code: ${res.status}`, data: errMsg }, scriptEvent)
+                    await sendResponse(socket, { status: ServerStatusResponse.Failure, id: request.id, message: `HTTP Error! Status code: ${res.status}`, data: errMsg }, scriptEvent)
                     return;
                 }
 
@@ -155,7 +155,7 @@ export async function handleRequestAsync(data: string, socket: ModSocket) {
                 const contentLength = Number(res.headers.get('content-length') || 0);
 
                 if (contentLength > maxResponseSize) {
-                    sendResponse(socket, { id: request.id, status: ServerStatusResponse.Failure, message: `Response is too large! Maximum size is 10 MB.` }, scriptEvent)
+                    await sendResponse(socket, { id: request.id, status: ServerStatusResponse.Failure, message: `Response is too large! Maximum size is 10 MB.` }, scriptEvent)
                     return;
                 }
 
@@ -166,7 +166,7 @@ export async function handleRequestAsync(data: string, socket: ModSocket) {
                     const arrBuffer = await res.arrayBuffer();
 
                     if (arrBuffer.byteLength > maxResponseSize) {
-                        sendResponse(socket, { id: request.id, status: ServerStatusResponse.Failure, message: `Response is too large! Maximum size is 10 MB.` }, scriptEvent)
+                        await sendResponse(socket, { id: request.id, status: ServerStatusResponse.Failure, message: `Response is too large! Maximum size is 10 MB.` }, scriptEvent)
                         return;
                     }
 
@@ -202,7 +202,7 @@ export async function handleRequestAsync(data: string, socket: ModSocket) {
 
                             if (totalSize > maxResponseSize) {
                                 await reader.cancel();
-                                sendResponse(socket, { id: request.id, status: ServerStatusResponse.Failure, message: `Response is too large! Maximum size is 10 MB.` }, scriptEvent)
+                                await sendResponse(socket, { id: request.id, status: ServerStatusResponse.Failure, message: `Response is too large! Maximum size is 10 MB.` }, scriptEvent)
                                 return;
                             }
 
@@ -246,10 +246,10 @@ export async function handleRequestAsync(data: string, socket: ModSocket) {
                     i = end;
                 }
 
-                sendResponse(socket, { id: request.id, status: ServerStatusResponse.Success, message: `Get your data with .getData()` }, scriptEvent)
+                await sendResponse(socket, { id: request.id, status: ServerStatusResponse.Success, message: `Get your data with .getData()` }, scriptEvent)
             } catch (e: any) {
                 console.error(e.stack);
-                sendResponse(socket, { id: request.id, status: ServerStatusResponse.Failure, message: `Failed to get data from website: ${e.message}` }, scriptEvent)
+                await sendResponse(socket, { id: request.id, status: ServerStatusResponse.Failure, message: `Failed to get data from website: ${e.message}` }, scriptEvent)
             }
         }
         if (request.type == RequestTypes.MidiRequest) {
