@@ -303,7 +303,7 @@ export function handleDebugeeEvent(socket: ModSocket, eventMessage: any) {
         for (const stat of evt.stats) {
             if (stat.name == "dynamic_property_values") {
                 const dps = stat.children;
-                console.log(dps.filter(dp => dp.name.startsWith("hivemindRequest")).map(dp => dp.name).join(", "))
+                // console.log(dps.filter(dp => dp.name.startsWith("hivemindRequest")).map(dp => dp.name).join(", "))
                 // const reloadDP = dps.find(dp => dp.name == "hivemindReload");
                 // if (reloadDP) {
                 //     runCommand(socket, `reload`);
