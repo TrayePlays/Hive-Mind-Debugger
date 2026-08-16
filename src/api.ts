@@ -41,7 +41,6 @@ enum ServerStatusResponse {
 async function sendResponse(socket: ModSocket, data: { status: ServerStatusResponse, id: string, data?: string, message?: string }, scriptEvent = true) {
     const scriptEventQuote = scriptEvent ? "" : `"`
     await runCommand(socket, `${scriptEvent ? "scriptevent hivemind:" : ""}respond ${scriptEventQuote}${data.id}|${data.status}${data.message ? `|${data.message}` : ""}${data.data ? `|${data.data}` : ""}${scriptEventQuote}`)
-    console.log(`cmd str: ${`${scriptEvent ? "scriptevent hivemind:" : ""}respond ${scriptEventQuote}${data.id}|${data.status}${data.message ? `|${data.message}` : ""}${data.data ? `|${data.data}` : ""}${scriptEventQuote}`}`)
 }
 
 async function runBatched(socket: ModSocket, commands: string[], batchSize = 1, delay = 1) {
@@ -103,7 +102,6 @@ function checkMidiLimit(socket: ModSocket): boolean {
 
 export async function handleRequest(data: string, socket: ModSocket) {
     try {
-        console.log(`Got request!`)
         const requestStr = data
         const request = JSON.parse(requestStr) as Request
         const scriptEvent = request.scriptEvent
@@ -139,11 +137,25 @@ export async function handleRequest(data: string, socket: ModSocket) {
                 }
 
                 const contentType = res.headers.get('content-type') || '';
+                const maxResponseSize = 10 * 1024 * 1024;
+                const contentLength = Number(res.headers.get('content-length') || 0);
+
+                if (contentLength > maxResponseSize) {
+                    sendResponse(socket, { id: request.id, status: ServerStatusResponse.Failure, message: `Response is too large! Maximum size is 10 MB.` }, scriptEvent)
+                    return;
+                }
+
                 let dataReceived: any;
                 if (contentType.includes("application/json")) {
                     dataReceived = await res.json();
                 } else if (contentType.startsWith("image/")) {
                     const arrBuffer = await res.arrayBuffer();
+
+                    if (arrBuffer.byteLength > maxResponseSize) {
+                        sendResponse(socket, { id: request.id, status: ServerStatusResponse.Failure, message: `Response is too large! Maximum size is 10 MB.` }, scriptEvent)
+                        return;
+                    }
+
                     const buffer = Buffer.from(arrBuffer);
                     let image = sharp(buffer).ensureAlpha()
                     const crop = request.data.extraInfo?.crop
@@ -160,38 +172,55 @@ export async function handleRequest(data: string, socket: ModSocket) {
                         height: info.height
                     };
                 } else {
-                    dataReceived = await res.text();
+                    if (!res.body) {
+                        dataReceived = await res.text();
+                    } else {
+                        const reader = res.body.getReader();
+                        const chunks: Buffer[] = [];
+                        let totalSize = 0;
+
+                        while (true) {
+                            const { done, value } = await reader.read();
+
+                            if (done) break;
+
+                            totalSize += value.byteLength;
+
+                            if (totalSize > maxResponseSize) {
+                                await reader.cancel();
+                                sendResponse(socket, { id: request.id, status: ServerStatusResponse.Failure, message: `Response is too large! Maximum size is 10 MB.` }, scriptEvent)
+                                return;
+                            }
+
+                            chunks.push(Buffer.from(value));
+                        }
+
+                        dataReceived = Buffer.concat(chunks).toString("utf8");
+                    }
                 }
+
                 let str = JSON.stringify(JSON.stringify(dataReceived)).slice(1, -1);
                 if (scriptEvent) str = JSON.stringify(dataReceived);
-                // 2074 max length of command
-                const maxChunk = 2000 - request.id.length - (scriptEvent ? 21 : 0);
-                const chunks = [];
 
+                // 2074 max length of command
+                const maxChunk = 1800 - request.id.length - (scriptEvent ? 21 : 0);
                 let i = 0;
                 while (i < str.length) {
-                    if (i % 50000 === 0) await new Promise(r => setImmediate(r));
-                    let end = i + maxChunk;
-
+                    let end = Math.min(i + maxChunk, str.length);
                     let backslashCount = 0;
                     while (end - 1 - backslashCount >= i && str[end - 1 - backslashCount] === '\\') {
                         backslashCount++;
                     }
-
-                    if (backslashCount % 2 === 1) {
+                    if (backslashCount % 2 === 1 && end < str.length) {
                         end++;
                     }
-
-                    chunks.push(str.slice(i, end));
+                    const chunk = str.slice(i, end);
+                    const command = `${scriptEvent ? "scriptevent hivemind:" : ""}set add ${scriptEventQuote}${request.id}${scriptEventQuote} ${scriptEventQuote}${chunk}${scriptEventQuote}`;
+                    await runBatched(socket, [command], 75, 500);
                     i = end;
+                    if (i % 50000 === 0) await new Promise(r => setImmediate(r));
                 }
 
-                let strArr: string[] = [];
-                for (const chunk of chunks) {
-                    await new Promise(r => setImmediate(r));
-                    strArr.push(`${scriptEvent ? "scriptevent hivemind:" : ""}set add ${scriptEventQuote}${request.id}${scriptEventQuote} ${scriptEventQuote}${chunk}${scriptEventQuote}`);
-                }
-                await runBatched(socket, strArr, 75, 500)
                 sendResponse(socket, { id: request.id, status: ServerStatusResponse.Success, message: `Get your data with .getData()` }, scriptEvent)
             } catch (e: any) {
                 console.error(e.stack);
