@@ -390,7 +390,11 @@ export class ModSocket {
     public socket: Socket;
     public version: number;
     public isWriting: boolean;
-    public writeQueue: Buffer[]
+    public writeQueue: {
+        buffer: Buffer;
+        resolve: () => void;
+        reject: (err: Error) => void;
+    }[]
     public interval?: NodeJS.Timeout;
     public isConnected: boolean;
     protocolCapabilities?: ProtocolCapabilities;
@@ -548,25 +552,72 @@ interface PendingDebuggerRequest {
     timeout?: ReturnType<typeof setTimeout>;
 }
 
-async function safeWrite(socket: ModSocket, buffer: Buffer) {
-    socket.writeQueue.push(buffer);
+async function processWriteQueue(socket: ModSocket): Promise<void> {
     if (socket.isWriting) return;
+
     socket.isWriting = true;
 
     try {
         while (socket.writeQueue.length > 0) {
-            const nextBuffer = socket.writeQueue.shift();
-            if (!nextBuffer || socket.socket.destroyed) continue;
-            if (!socket.socket.write(nextBuffer)) {
-                await Promise.race([
-                    once(socket.socket, "drain"),
-                    once(socket.socket, "close")
-                ]);
+            if (socket.socket.destroyed || !socket.socket.writable) {
+                const error = new Error("Socket is closed");
+
+                for (const item of socket.writeQueue) {
+                    item.reject(error);
+                }
+
+                socket.writeQueue.length = 0;
+                return;
+            }
+
+            const item = socket.writeQueue.shift();
+            if (!item) continue;
+
+            try {
+                const canContinue = socket.socket.write(item.buffer);
+
+                if (!canContinue) {
+                    await new Promise<void>((resolve, reject) => {
+                        const onDrain = () => {
+                            cleanup();
+                            resolve();
+                        };
+
+                        const onClose = () => {
+                            cleanup();
+                            reject(new Error("Socket closed while writing"));
+                        };
+
+                        const cleanup = () => {
+                            socket.socket.off("drain", onDrain);
+                            socket.socket.off("close", onClose);
+                        };
+
+                        socket.socket.once("drain", onDrain);
+                        socket.socket.once("close", onClose);
+                    });
+                }
+
+                item.resolve();
+            } catch (err: any) {
+                item.reject(err);
             }
         }
     } finally {
         socket.isWriting = false;
     }
+}
+
+async function safeWrite(socket: ModSocket, buffer: Buffer): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+        socket.writeQueue.push({
+            buffer,
+            resolve,
+            reject
+        });
+
+        processWriteQueue(socket);
+    });
 }
 
 export async function sendDebuggeeMessage(socket: ModSocket, envelope: unknown): Promise<void> {
