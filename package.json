@@ -10,12 +10,16 @@
   "license": "MIT",
   "description": "",
   "dependencies": {
+    "@tonejs/midi": "^2.0.28",
     "@vscode/debugadapter": "^1.68.0",
     "@vscode/debugprotocol": "^1.68.0",
     "dotenv": "^17.4.2",
+    "midi-file": "^1.2.4",
+    "midi-parser-js": "^4.0.4",
+    "puppeteer": "^25.4.0",
     "sharp": "^0.35.3",
     "stream-parser": "^0.3.1",
-    "vscode": "^1.1.37"
+    "vscode": "^1.1.36"
   },
   "devDependencies": {
     "@types/node": "^26.0.0",

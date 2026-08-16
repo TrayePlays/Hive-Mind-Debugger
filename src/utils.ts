@@ -6,6 +6,7 @@ import { messageDiscord } from "./discord";
 import { once } from "events";
 import fs from "fs";
 import path from "path";
+const MAX_MIDI_IN_5 = serverData.config.MAX_MIDI_IN_5;
 const MAX_REQUESTS_IN_30 = serverData.config.MAX_REQUESTS_IN_30;
 const LATEST_VERSION = serverData.config.LATEST_VERSION;
 const FIRST_VERSION = serverData.config.FIRST_VERSION;
@@ -106,23 +107,22 @@ interface StatsSchema {
 }
 
 export async function onConnectionComplete(protocolVersion: number, socket: ModSocket, targetModuleUuid?: string, passcode?: string) {
-    await sendDebuggeeMessage(socket, {
-        type: 'protocol',
-        version: protocolVersion,
-        target_module_uuid: targetModuleUuid,
-        passcode: passcode,
-    });
-
-    await sendDebuggeeMessage(socket, {
-        event: "initialized",
-        type: "event"
-    });
-
-    await sendDebuggeeMessage(socket, {
-        type: 'resume',
-    });
-
     if (!socket.isConnected) {
+        await sendDebuggeeMessage(socket, {
+            type: 'protocol',
+            version: protocolVersion,
+            target_module_uuid: targetModuleUuid,
+            passcode: passcode,
+        });
+
+        // await sendDebuggeeMessage(socket, {
+        //     event: "initialized",
+        //     type: "event"
+        // });
+
+        await sendDebuggeeMessage(socket, {
+            type: 'resume',
+        });
         const data = await Promise.race([
             runCommandAsync(socket, `purpose`),
             runCommandAsync(socket, `scriptevent hivemind:purpose`)
@@ -303,7 +303,7 @@ export function handleDebugeeEvent(socket: ModSocket, eventMessage: any) {
         for (const stat of evt.stats) {
             if (stat.name == "dynamic_property_values") {
                 const dps = stat.children;
-
+                console.log(dps.filter(dp => dp.name.startsWith("hivemindRequest")).map(dp => dp.name).join(", "))
                 // const reloadDP = dps.find(dp => dp.name == "hivemindReload");
                 // if (reloadDP) {
                 //     runCommand(socket, `reload`);
@@ -330,7 +330,6 @@ export function handleDebugeeEvent(socket: ModSocket, eventMessage: any) {
                 const chunked = dps.filter(dp => dp.name.startsWith("hivemindRequest") && dp.name.includes("|"));
 
                 const requestGroups = new Map<string, any[]>();
-
                 for (const dp of chunked) {
                     const [key, index] = dp.name.split("|");
 
@@ -402,12 +401,20 @@ export class ModSocket {
         tokens: number
         lastRefill: number
     }
+    midiLimit?: {
+        tokens: number
+        lastRefill: number
+    }
 
     sendDiscord?: boolean
 
     constructor(existingSocket: Socket, connectionData: { isConnected?: boolean, protocolCapabilities?: ProtocolCapabilities } = { isConnected: false, protocolCapabilities: undefined }) {
         this.rateLimit = {
             tokens: MAX_REQUESTS_IN_30,
+            lastRefill: Date.now()
+        }
+        this.midiLimit = {
+            tokens: MAX_MIDI_IN_5,
             lastRefill: Date.now()
         }
         this.writeQueue = []

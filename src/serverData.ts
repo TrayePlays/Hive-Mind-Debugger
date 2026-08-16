@@ -6,6 +6,7 @@ interface Config {
     LATEST_VERSION: number
     FIRST_VERSION: number
     MAX_REQUESTS_IN_30: number
+    MAX_MIDI_IN_5: number
 }
 
 interface ServerData {
