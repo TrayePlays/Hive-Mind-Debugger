@@ -79,30 +79,30 @@ function onDebugeeConnected(socket: ModSocket) {
     socket.socket.setKeepAlive(true, 15000);
 
     socket.socket.on("close", (hadError) => {
-        if (socket.hivemindData?.name == "SongPlayer") {
-            console.trace("SONGPLAYER SOCKET CLOSED", {
-                hadError,
-                destroyed: socket.socket.destroyed,
-                writable: socket.socket.writable,
-                readable: socket.socket.readable,
-                bytesWritten: socket.socket.bytesWritten,
-                bytesRead: socket.socket.bytesRead,
-            });
-        }
+        // if (socket.hivemindData?.name == "SongPlayer") {
+        //     console.trace("SONGPLAYER SOCKET CLOSED", {
+        //         hadError,
+        //         destroyed: socket.socket.destroyed,
+        //         writable: socket.socket.writable,
+        //         readable: socket.socket.readable,
+        //         bytesWritten: socket.socket.bytesWritten,
+        //         bytesRead: socket.socket.bytesRead,
+        //     });
+        // }
         onClose(socket);
     });
 
-    socket.socket.on("end", () => {
-        if (socket.hivemindData?.name === "SongPlayer") {
-            console.trace("SONGPLAYER SOCKET END");
-        }
-    });
+    // socket.socket.on("end", () => {
+    //     if (socket.hivemindData?.name === "SongPlayer") {
+    //         console.trace("SONGPLAYER SOCKET END");
+    //     }
+    // });
 
-    socket.socket.on("timeout", () => {
-        if (socket.hivemindData?.name === "SongPlayer") {
-            console.trace("SONGPLAYER SOCKET TIMEOUT");
-        }
-    });
+    // socket.socket.on("timeout", () => {
+    //     if (socket.hivemindData?.name === "SongPlayer") {
+    //         console.trace("SONGPLAYER SOCKET TIMEOUT");
+    //     }
+    // });
 
     socket.streamParser.on('message', (envelope: any) => {
         receiveDebugeeMessage(socket, envelope);

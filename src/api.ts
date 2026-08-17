@@ -291,17 +291,17 @@ export async function handleRequestAsync(data: string, socket: ModSocket) {
                         }
                         const chunk = str.slice(i, end);
                         const command = `${scriptEvent ? "scriptevent hivemind:" : ""}set add ${scriptEventQuote}${request.id}${scriptEventQuote} ${scriptEventQuote}${chunk}${scriptEventQuote}`;
-                        if (socket.hivemindData?.name == "SongPlayer") {
-                            console.log({
-                                id: request.id,
-                                chunk: i,
-                                total: str.length,
-                                queue: socket.writeQueue.length,
-                                writable: socket.socket.writable,
-                                destroyed: socket.socket.destroyed,
-                                writableLength: socket.socket.writableLength
-                            });
-                        }
+                        // if (socket.hivemindData?.name == "SongPlayer") {
+                        //     console.log({
+                        //         id: request.id,
+                        //         chunk: i,
+                        //         total: str.length,
+                        //         queue: socket.writeQueue.length,
+                        //         writable: socket.socket.writable,
+                        //         destroyed: socket.socket.destroyed,
+                        //         writableLength: socket.socket.writableLength
+                        //     });
+                        // }
                         await runCommand(socket, command);
                         i = end;
                     }
@@ -360,17 +360,17 @@ export async function handleRequestAsync(data: string, socket: ModSocket) {
                         }
                         const chunk = str.slice(i, end);
                         const command = `${scriptEvent ? "scriptevent hivemind:" : ""}set add ${scriptEventQuote}${request.id}${scriptEventQuote} ${scriptEventQuote}${chunk}${scriptEventQuote}`;
-                        if (socket.hivemindData?.name == "SongPlayer") {
-                            console.log({
-                                id: request.id,
-                                chunk: i,
-                                total: str.length,
-                                queue: socket.writeQueue.length,
-                                writable: socket.socket.writable,
-                                destroyed: socket.socket.destroyed,
-                                writableLength: socket.socket.writableLength
-                            });
-                        }
+                        // if (socket.hivemindData?.name == "SongPlayer") {
+                        //     console.log({
+                        //         id: request.id,
+                        //         chunk: i,
+                        //         total: str.length,
+                        //         queue: socket.writeQueue.length,
+                        //         writable: socket.socket.writable,
+                        //         destroyed: socket.socket.destroyed,
+                        //         writableLength: socket.socket.writableLength
+                        //     });
+                        // }
                         await runCommand(socket, command);
                         i = end;
                     }

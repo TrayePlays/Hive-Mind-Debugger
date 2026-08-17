@@ -576,15 +576,15 @@ async function processWriteQueue(socket: ModSocket): Promise<void> {
             const item = socket.writeQueue[0];
 
             try {
-                if (socket.hivemindData?.name == "SongPlayer") {
-                    console.log("WRITING DEBUGGEE", {
-                        bytes: item.buffer.length,
-                        queue: socket.writeQueue.length,
-                        destroyed: socket.socket.destroyed,
-                        writable: socket.socket.writable,
-                        writableLength: socket.socket.writableLength
-                    });
-                }
+                // if (socket.hivemindData?.name == "SongPlayer") {
+                //     console.log("WRITING DEBUGGEE", {
+                //         bytes: item.buffer.length,
+                //         queue: socket.writeQueue.length,
+                //         destroyed: socket.socket.destroyed,
+                //         writable: socket.socket.writable,
+                //         writableLength: socket.socket.writableLength
+                //     });
+                // }
 
                 const canContinue = socket.socket.write(item.buffer);
 
