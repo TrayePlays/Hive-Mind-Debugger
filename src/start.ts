@@ -80,13 +80,13 @@ function onDebugeeConnected(socket: ModSocket) {
 
     socket.socket.on("close", (hadError) => {
         if (socket.hivemindData?.name == "SongPlayer") {
-            console.error("DEBUGGEE SOCKET CLOSED", {
+            console.trace("SONGPLAYER SOCKET CLOSED", {
                 hadError,
                 destroyed: socket.socket.destroyed,
                 writable: socket.socket.writable,
                 readable: socket.socket.readable,
                 bytesWritten: socket.socket.bytesWritten,
-                bytesRead: socket.socket.bytesRead
+                bytesRead: socket.socket.bytesRead,
             });
         }
         onClose(socket);
