@@ -171,11 +171,11 @@ export function handleRequest(data: string, socket: ModSocket) {
 
 export async function handleRequestAsync(data: string, socket: ModSocket) {
     try {
-        if (socket.hivemindData?.name == "SongPlayer") console.log("HANDLE REQUEST CALLED", Date.now());
+        // if (socket.hivemindData?.name == "SongPlayer") console.log("HANDLE REQUEST CALLED", Date.now());
         const requestStr = data
         const request = JSON.parse(requestStr) as Request
 
-        if (socket.hivemindData?.name == "SongPlayer") console.log("HANDLE REQUEST", request.id, Date.now());
+        // if (socket.hivemindData?.name == "SongPlayer") console.log("HANDLE REQUEST", request.id, Date.now());
 
         const scriptEvent = request.scriptEvent
         const scriptEventQuote = scriptEvent ? "" : `"`
