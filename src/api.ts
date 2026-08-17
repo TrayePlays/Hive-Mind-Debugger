@@ -276,7 +276,7 @@ export async function handleRequestAsync(data: string, socket: ModSocket) {
                 if (scriptEvent) str = JSON.stringify(dataReceived);
 
                 // 2074 max length of command
-                const maxChunk = 2000 - request.id.length - (scriptEvent ? 21 : 0);
+                const maxChunk = 100 - request.id.length - (scriptEvent ? 21 : 0);
                 const release = await acquireRequestWriteLock(socket);
                 try {
                     let i = 0;

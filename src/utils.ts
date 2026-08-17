@@ -649,7 +649,7 @@ async function safeWrite(socket: ModSocket, buffer: Buffer): Promise<void> {
 
 export async function sendDebuggeeMessage(socket: ModSocket, envelope: unknown): Promise<void> {
     if (!socket || !socket.socket.write || socket.socket.destroyed || !socket.socket.writable) {
-        onClose(socket);
+        console.warn("Socket is alr closed")
         return;
     }
 
