@@ -399,6 +399,7 @@ export class ModSocket {
     public interval?: NodeJS.Timeout;
     public isConnected: boolean;
     protocolCapabilities?: ProtocolCapabilities;
+    requestWriteLock?: Promise<void>;
     streamParser?: MessageStreamParser
     isDiscord?: boolean
     hivemindData?: HivemindData;
@@ -431,6 +432,18 @@ export class ModSocket {
         this.socket = existingSocket;
         this.requestManager = new RequestManager(this);
     }
+}
+
+export async function acquireRequestWriteLock(socket: ModSocket): Promise<() => void> {
+    const previous = socket.requestWriteLock || Promise.resolve();
+    let release!: () => void;
+    socket.requestWriteLock = new Promise<void>(resolve => {
+        release = resolve;
+    });
+
+    await previous;
+
+    return release;
 }
 
 // Thanks Mojang https://github.com/Mojang/minecraft-debugger/

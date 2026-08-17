@@ -1,5 +1,5 @@
 import { serverData } from "./serverData"
-import { ModSocket, runCommand, sleep } from "./utils"
+import { acquireRequestWriteLock, ModSocket, runCommand, sleep } from "./utils"
 import { parseMidi } from "midi-file"
 import puppeteer from "puppeteer"
 import sharp from "sharp";
@@ -97,7 +97,7 @@ function checkMidiLimit(socket: ModSocket): boolean {
     if (!socket || socket.socket.destroyed || !socket.socket.writable) {
         return false;
     }
-    
+
     const now = Date.now();
 
     if (!socket.midiLimit) {
@@ -277,31 +277,36 @@ export async function handleRequestAsync(data: string, socket: ModSocket) {
 
                 // 2074 max length of command
                 const maxChunk = 2000 - request.id.length - (scriptEvent ? 21 : 0);
-                let i = 0;
-                while (i < str.length) {
-                    let end = Math.min(i + maxChunk, str.length);
-                    let backslashCount = 0;
-                    while (end - 1 - backslashCount >= i && str[end - 1 - backslashCount] === '\\') {
-                        backslashCount++;
+                const release = await acquireRequestWriteLock(socket);
+                try {
+                    let i = 0;
+                    while (i < str.length) {
+                        let end = Math.min(i + maxChunk, str.length);
+                        let backslashCount = 0;
+                        while (end - 1 - backslashCount >= i && str[end - 1 - backslashCount] === '\\') {
+                            backslashCount++;
+                        }
+                        if (backslashCount % 2 === 1 && end < str.length) {
+                            end++;
+                        }
+                        const chunk = str.slice(i, end);
+                        const command = `${scriptEvent ? "scriptevent hivemind:" : ""}set add ${scriptEventQuote}${request.id}${scriptEventQuote} ${scriptEventQuote}${chunk}${scriptEventQuote}`;
+                        if (socket.hivemindData?.name == "SongPlayer") {
+                            console.log({
+                                id: request.id,
+                                chunk: i,
+                                total: str.length,
+                                queue: socket.writeQueue.length,
+                                writable: socket.socket.writable,
+                                destroyed: socket.socket.destroyed,
+                                writableLength: socket.socket.writableLength
+                            });
+                        }
+                        await runCommand(socket, command);
+                        i = end;
                     }
-                    if (backslashCount % 2 === 1 && end < str.length) {
-                        end++;
-                    }
-                    const chunk = str.slice(i, end);
-                    const command = `${scriptEvent ? "scriptevent hivemind:" : ""}set add ${scriptEventQuote}${request.id}${scriptEventQuote} ${scriptEventQuote}${chunk}${scriptEventQuote}`;
-                    if (socket.hivemindData?.name == "SongPlayer") {
-                        console.log({
-                            id: request.id,
-                            chunk: i,
-                            total: str.length,
-                            queue: socket.writeQueue.length,
-                            writable: socket.socket.writable,
-                            destroyed: socket.socket.destroyed,
-                            writableLength: socket.socket.writableLength
-                        });
-                    }
-                    await runCommand(socket, command);
-                    i = end;
+                } finally {
+                    release();
                 }
 
                 await sendResponse(socket, { id: request.id, status: ServerStatusResponse.Success, message: `Get your data with .getData()` }, scriptEvent)
@@ -341,31 +346,36 @@ export async function handleRequestAsync(data: string, socket: ModSocket) {
 
                 // 2074 max length of command
                 const maxChunk = 2000 - request.id.length - (scriptEvent ? 21 : 0);
-                let i = 0;
-                while (i < str.length) {
-                    let end = Math.min(i + maxChunk, str.length);
-                    let backslashCount = 0;
-                    while (end - 1 - backslashCount >= i && str[end - 1 - backslashCount] === '\\') {
-                        backslashCount++;
+                const release = await acquireRequestWriteLock(socket);
+                try {
+                    let i = 0;
+                    while (i < str.length) {
+                        let end = Math.min(i + maxChunk, str.length);
+                        let backslashCount = 0;
+                        while (end - 1 - backslashCount >= i && str[end - 1 - backslashCount] === '\\') {
+                            backslashCount++;
+                        }
+                        if (backslashCount % 2 === 1 && end < str.length) {
+                            end++;
+                        }
+                        const chunk = str.slice(i, end);
+                        const command = `${scriptEvent ? "scriptevent hivemind:" : ""}set add ${scriptEventQuote}${request.id}${scriptEventQuote} ${scriptEventQuote}${chunk}${scriptEventQuote}`;
+                        if (socket.hivemindData?.name == "SongPlayer") {
+                            console.log({
+                                id: request.id,
+                                chunk: i,
+                                total: str.length,
+                                queue: socket.writeQueue.length,
+                                writable: socket.socket.writable,
+                                destroyed: socket.socket.destroyed,
+                                writableLength: socket.socket.writableLength
+                            });
+                        }
+                        await runCommand(socket, command);
+                        i = end;
                     }
-                    if (backslashCount % 2 === 1 && end < str.length) {
-                        end++;
-                    }
-                    const chunk = str.slice(i, end);
-                    const command = `${scriptEvent ? "scriptevent hivemind:" : ""}set add ${scriptEventQuote}${request.id}${scriptEventQuote} ${scriptEventQuote}${chunk}${scriptEventQuote}`;
-                    if (socket.hivemindData?.name == "SongPlayer") {
-                        console.log({
-                            id: request.id,
-                            chunk: i,
-                            total: str.length,
-                            queue: socket.writeQueue.length,
-                            writable: socket.socket.writable,
-                            destroyed: socket.socket.destroyed,
-                            writableLength: socket.socket.writableLength
-                        });
-                    }
-                    await runCommand(socket, command);
-                    i = end;
+                } finally {
+                    release();
                 }
 
                 await sendResponse(socket, { id: request.id, status: ServerStatusResponse.Success, message: `Get your data with .getData()` }, scriptEvent)
