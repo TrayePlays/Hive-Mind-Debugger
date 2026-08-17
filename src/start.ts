@@ -92,6 +92,18 @@ function onDebugeeConnected(socket: ModSocket) {
         onClose(socket);
     });
 
+    socket.socket.on("end", () => {
+        if (socket.hivemindData?.name === "SongPlayer") {
+            console.trace("SONGPLAYER SOCKET END");
+        }
+    });
+
+    socket.socket.on("timeout", () => {
+        if (socket.hivemindData?.name === "SongPlayer") {
+            console.trace("SONGPLAYER SOCKET TIMEOUT");
+        }
+    });
+
     socket.streamParser.on('message', (envelope: any) => {
         receiveDebugeeMessage(socket, envelope);
     });
