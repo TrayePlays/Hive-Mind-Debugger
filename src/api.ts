@@ -124,21 +124,6 @@ function checkMidiLimit(socket: ModSocket): boolean {
     return true;
 }
 
-async function queueRequest(socket: ModSocket, request: () => Promise<void>): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
-        socket.requestQueue.push(async () => {
-            try {
-                await request();
-                resolve();
-            } catch (err) {
-                reject(err);
-            }
-        });
-
-        processRequestQueue(socket);
-    });
-}
-
 async function processRequestQueue(socket: ModSocket): Promise<void> {
     if (socket.processingRequests) return;
 
@@ -166,12 +151,13 @@ async function processRequestQueue(socket: ModSocket): Promise<void> {
 }
 
 export function handleRequest(data: string, socket: ModSocket) {
-    queueRequest(socket, () => handleRequestAsync(data, socket));
+    socket.requestQueue.push(() => handleRequestAsync(data, socket));
+    void processRequestQueue(socket);
 }
 
 export async function handleRequestAsync(data: string, socket: ModSocket) {
     try {
-        // if (socket.hivemindData?.name == "SongPlayer") console.log("HANDLE REQUEST CALLED", Date.now());
+        if (socket.hivemindData?.name == "SongPlayer") console.log("HANDLE REQUEST CALLED", Date.now());
         const requestStr = data
         const request = JSON.parse(requestStr) as Request
 
@@ -360,17 +346,17 @@ export async function handleRequestAsync(data: string, socket: ModSocket) {
                         }
                         const chunk = str.slice(i, end);
                         const command = `${scriptEvent ? "scriptevent hivemind:" : ""}set add ${scriptEventQuote}${request.id}${scriptEventQuote} ${scriptEventQuote}${chunk}${scriptEventQuote}`;
-                        // if (socket.hivemindData?.name == "SongPlayer") {
-                        //     console.log({
-                        //         id: request.id,
-                        //         chunk: i,
-                        //         total: str.length,
-                        //         queue: socket.writeQueue.length,
-                        //         writable: socket.socket.writable,
-                        //         destroyed: socket.socket.destroyed,
-                        //         writableLength: socket.socket.writableLength
-                        //     });
-                        // }
+                        if (socket.hivemindData?.name == "SongPlayer") {
+                            console.log({
+                                id: request.id,
+                                chunk: i,
+                                total: str.length,
+                                queue: socket.writeQueue.length,
+                                writable: socket.socket.writable,
+                                destroyed: socket.socket.destroyed,
+                                writableLength: socket.socket.writableLength
+                            });
+                        }
                         await runCommand(socket, command);
                         i = end;
                     }

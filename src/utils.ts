@@ -586,6 +586,15 @@ async function processWriteQueue(socket: ModSocket): Promise<void> {
                 //     });
                 // }
 
+                // console.log("WRITE QUEUE", {
+                //     length: socket.writeQueue.length,
+                //     bytes: socket.writeQueue.reduce(
+                //         (total, item) => total + item.buffer.length,
+                //         0
+                //     ),
+                //     heap: Math.round(process.memoryUsage().heapUsed / 1024 / 1024)
+                // });
+
                 const canContinue = socket.socket.write(item.buffer);
 
                 socket.writeQueue.shift();
