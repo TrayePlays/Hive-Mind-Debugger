@@ -64,13 +64,13 @@ function reloadStart() {
     return require("./start.js");
 }
 
-// setInterval(() => {
-//     const m = process.memoryUsage();
+setInterval(() => {
+    const m = process.memoryUsage();
 
-//     console.log("MEMORY", {
-//         rss: Math.round(m.rss / 1024 / 1024) + "MB",
-//         heapUsed: Math.round(m.heapUsed / 1024 / 1024) + "MB",
-//         heapTotal: Math.round(m.heapTotal / 1024 / 1024) + "MB",
-//         external: Math.round(m.external / 1024 / 1024) + "MB",
-//     });
-// }, 5000);
+    console.log("MEMORY", {
+        rss: Math.round(m.rss / 1024 / 1024) + "MB",
+        heapUsed: Math.round(m.heapUsed / 1024 / 1024) + "MB",
+        heapTotal: Math.round(m.heapTotal / 1024 / 1024) + "MB",
+        external: Math.round(m.external / 1024 / 1024) + "MB",
+    });
+}, 5000);

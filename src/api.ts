@@ -3,6 +3,7 @@ import { acquireRequestWriteLock, ModSocket, runCommand, sleep } from "./utils"
 import { parseMidi } from "midi-file"
 import puppeteer from "puppeteer"
 import sharp from "sharp";
+import { withBrowser } from "./browsePool";
 const MAX_REQUESTS_IN_30 = serverData.config.MAX_REQUESTS_IN_30;
 const MAX_MIDI_IN_5 = serverData.config.MAX_MIDI_IN_5;
 
@@ -33,6 +34,7 @@ enum RequestTypes {
 }
 
 enum ServerStatusResponse {
+    Running = -2,
     Ran = -1,
     Success = 0,
     Failure = 1
@@ -40,7 +42,7 @@ enum ServerStatusResponse {
 
 async function sendResponse(socket: ModSocket, data: { status: ServerStatusResponse, id: string, data?: string, message?: string }, scriptEvent = true) {
     const scriptEventQuote = scriptEvent ? "" : `"`
-    await runCommand(socket, `${scriptEvent ? "scriptevent hivemind:" : ""}respond ${scriptEventQuote}${data.id}|${data.status}${data.message ? `|${data.message}` : ""}${data.data ? `|${data.data}` : ""}${scriptEventQuote}`)
+    await runCommand(socket, `${scriptEvent ? "scriptevent hivemind:" : ""}respond ${scriptEventQuote}${data.id}|${data.status}${data.message ? `|${data.message}` : "|"}${data.data ? `|${data.data}` : "|"}${scriptEventQuote}`)
 }
 
 async function runBatched(socket: ModSocket, commands: string[], batchSize = 1, delay = 1) {
@@ -151,6 +153,15 @@ async function processRequestQueue(socket: ModSocket): Promise<void> {
 }
 
 export function handleRequest(data: string, socket: ModSocket) {
+    let request: Request;
+
+    try {
+        request = JSON.parse(data);
+    } catch {
+        return;
+    }
+
+    void sendResponse(socket, { status: ServerStatusResponse.Ran, id: request.id }, request.scriptEvent);
     socket.requestQueue.push(() => handleRequestAsync(data, socket));
     void processRequestQueue(socket);
 }
@@ -175,8 +186,6 @@ export async function handleRequestAsync(data: string, socket: ModSocket) {
             await sendResponse(socket, { status: ServerStatusResponse.Failure, id: request.id, message: "Unknown request type!" }, scriptEvent)
             return;
         };
-
-        await sendResponse(socket, { status: ServerStatusResponse.Ran, id: request.id }, scriptEvent);
 
         if (request.type == RequestTypes.HttpRequest) {
             if (!checkRateLimit(socket)) {
@@ -260,9 +269,9 @@ export async function handleRequestAsync(data: string, socket: ModSocket) {
 
                 let str = JSON.stringify(JSON.stringify(dataReceived)).slice(1, -1);
                 if (scriptEvent) str = JSON.stringify(dataReceived);
-
                 // 2074 max length of command
                 const maxChunk = 1000 - request.id.length - (scriptEvent ? 21 : 0);
+                if (socket.hivemindData?.version ?? 0.2 >= 0.5) await sendResponse(socket, { id: request.id, status: ServerStatusResponse.Running, data: JSON.stringify({ totalChunks: Math.ceil(str.length / maxChunk) }) })
                 const release = await acquireRequestWriteLock(socket);
                 try {
                     let i = 0;
@@ -332,6 +341,7 @@ export async function handleRequestAsync(data: string, socket: ModSocket) {
 
                 // 2074 max length of command
                 const maxChunk = 1000 - request.id.length - (scriptEvent ? 21 : 0);
+                if (socket.hivemindData?.version ?? 0.2 >= 0.5) await sendResponse(socket, { id: request.id, status: ServerStatusResponse.Running, data: JSON.stringify({ totalChunks: Math.ceil(str.length / maxChunk) }) })
                 const release = await acquireRequestWriteLock(socket);
                 try {
                     let i = 0;
@@ -347,15 +357,15 @@ export async function handleRequestAsync(data: string, socket: ModSocket) {
                         const chunk = str.slice(i, end);
                         const command = `${scriptEvent ? "scriptevent hivemind:" : ""}set add ${scriptEventQuote}${request.id}${scriptEventQuote} ${scriptEventQuote}${chunk}${scriptEventQuote}`;
                         if (socket.hivemindData?.name == "SongPlayer") {
-                            console.log({
-                                id: request.id,
-                                chunk: i,
-                                total: str.length,
-                                queue: socket.writeQueue.length,
-                                writable: socket.socket.writable,
-                                destroyed: socket.socket.destroyed,
-                                writableLength: socket.socket.writableLength
-                            });
+                            // console.log({
+                            //     id: request.id,
+                            //     chunk: i,
+                            //     total: str.length,
+                            //     queue: socket.writeQueue.length,
+                            //     writable: socket.socket.writable,
+                            //     destroyed: socket.socket.destroyed,
+                            //     writableLength: socket.socket.writableLength
+                            // });
                         }
                         await runCommand(socket, command);
                         i = end;
@@ -376,49 +386,53 @@ export async function handleRequestAsync(data: string, socket: ModSocket) {
 }
 
 async function getOnlineSequencerData(sequenceUrl: string): Promise<number[] | null> {
-    const browser = await puppeteer.launch({
-        headless: true,
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage'
-        ]
-    });
-    const page = await browser.newPage();
+    return withBrowser(async (browser) => {
+        const page = await browser.newPage();
 
-    try {
-        await page.goto(sequenceUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        try {
+            await page.goto(sequenceUrl, {
+                waitUntil: "domcontentloaded",
+                timeout: 30000
+            });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise(resolve => setTimeout(resolve, 1000));
 
-        const rawMidiBytes = await page.evaluate(async (): Promise<number[]> => {
-            if (typeof (window as any).exportMidi !== 'function') {
-                throw new Error("exportMidi function not found");
-            }
-
-            let interceptedBytes: number[] | null = null;
-            const originalSaveBlob = (window as any).saveBlob;
-
-            (window as any).saveBlob = function (filename: string, dataArray: any[], mimeType: string) {
-                if (dataArray && dataArray[0]) {
-                    interceptedBytes = Array.from(dataArray[0]);
+            const rawMidiBytes = await page.evaluate(async (): Promise<number[]> => {
+                if (typeof (window as any).exportMidi !== "function") {
+                    throw new Error("exportMidi function not found");
                 }
-            };
-            (window as any).exportMidi();
-            (window as any).saveBlob = originalSaveBlob;
 
-            if (!interceptedBytes) {
-                throw new Error("Failed to intercept MIDI data via saveBlob invocation")
-            }
+                let interceptedBytes: number[] | null = null;
 
-            return interceptedBytes;
-        });
+                const originalSaveBlob = (window as any).saveBlob;
 
-        await browser.close();
-        return rawMidiBytes;
+                (window as any).saveBlob = function (
+                    filename: string,
+                    dataArray: any[],
+                    mimeType: string
+                ) {
+                    if (dataArray && dataArray[0]) {
+                        interceptedBytes = Array.from(dataArray[0]);
+                    }
+                };
 
-    } catch (error) {
-        await browser.close();
-        throw error;
-    }
+                (window as any).exportMidi();
+
+                (window as any).saveBlob = originalSaveBlob;
+
+                if (!interceptedBytes) {
+                    throw new Error(
+                        "Failed to intercept MIDI data via saveBlob invocation"
+                    );
+                }
+
+                return interceptedBytes;
+            });
+
+            return rawMidiBytes;
+
+        } finally {
+            await page.close();
+        }
+    });
 }
