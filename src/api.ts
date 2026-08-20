@@ -430,7 +430,13 @@ async function getOnlineSequencerData(sequenceUrl: string): Promise<number[] | n
             return rawMidiBytes;
 
         } finally {
-            await page.close();
+            if (page) {
+                try {
+                    await page.close();
+                } catch (err) {
+                    console.error("Failed to close page:", err);
+                }
+            }
         }
     });
 }
