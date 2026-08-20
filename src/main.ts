@@ -90,7 +90,10 @@ process.on("SIGTERM", () => {
 
 process.on("SIGINT", () => {
     console.error("RECEIVED SIGINT");
+
+    console.error(new Error("SIGINT stack trace").stack);
 });
+
 
 process.on("exit", (code) => {
     console.error("PROCESS EXITING:", code);
