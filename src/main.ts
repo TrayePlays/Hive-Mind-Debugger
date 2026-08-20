@@ -74,3 +74,24 @@ setInterval(() => {
         external: Math.round(m.external / 1024 / 1024) + "MB",
     });
 }, 5000);
+
+process.on("uncaughtException", (err) => {
+    console.error("UNCAUGHT EXCEPTION:", err);
+    console.error(err.stack);
+});
+
+process.on("unhandledRejection", (reason) => {
+    console.error("UNHANDLED REJECTION:", reason);
+});
+
+process.on("SIGTERM", () => {
+    console.error("RECEIVED SIGTERM");
+});
+
+process.on("SIGINT", () => {
+    console.error("RECEIVED SIGINT");
+});
+
+process.on("exit", (code) => {
+    console.error("PROCESS EXITING:", code);
+});
