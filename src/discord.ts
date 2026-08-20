@@ -16,16 +16,18 @@ export function onDiscordClose(socket: Socket) {
 export function onDiscordMessage(buffer: Buffer) {
     if (!serverData.discordSocket) return;
     const rawString = buffer.toString().trim();
-    const parsed = JSON.parse(rawString);
-    if (parsed.type == "get") {
-        if (parsed.name == "stats") {
-            serverData.stats.online = serverData.connectedSockets.length;
-            serverData.discordSocket.write(JSON.stringify({type: "stats", data: serverData.stats, for: parsed.for}));
+    try {
+        const parsed = JSON.parse(rawString);
+        if (parsed.type == "get") {
+            if (parsed.name == "stats") {
+                serverData.stats.online = serverData.connectedSockets.length;
+                serverData.discordSocket.write(JSON.stringify({ type: "stats", data: serverData.stats, for: parsed.for }));
+            }
         }
-    }
-    if (parsed.type == "tell") {
-        for (const socket of serverData.connectedSockets) {
-            sendMessage(socket, `§8[§6©§8] §r<Hive Mind> ${parsed.message}`);
+        if (parsed.type == "tell") {
+            for (const socket of serverData.connectedSockets) {
+                sendMessage(socket, `§8[§6©§8] §r<Hive Mind> ${parsed.message}`);
+            }
         }
-    }
+    } catch {};
 }
