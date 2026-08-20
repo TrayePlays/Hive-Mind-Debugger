@@ -3,7 +3,7 @@ import { acquireRequestWriteLock, ModSocket, runCommand, sleep } from "./utils"
 import { parseMidi } from "midi-file"
 import puppeteer from "puppeteer"
 import sharp from "sharp";
-import { withBrowser } from "./browsePool";
+import { withPage } from "./browsePool";
 const MAX_REQUESTS_IN_30 = serverData.config.MAX_REQUESTS_IN_30;
 const MAX_MIDI_IN_5 = serverData.config.MAX_MIDI_IN_5;
 
@@ -386,9 +386,7 @@ export async function handleRequestAsync(data: string, socket: ModSocket) {
 }
 
 async function getOnlineSequencerData(sequenceUrl: string): Promise<number[] | null> {
-    return withBrowser(async (browser) => {
-        const page = await browser.newPage();
-
+    return withPage(async (page) => {
         try {
             await page.goto(sequenceUrl, {
                 waitUntil: "domcontentloaded",

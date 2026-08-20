@@ -1,70 +1,94 @@
-import puppeteer, { Browser, Page } from "puppeteer";
+import { Browser, Page } from "puppeteer";
+import puppeteer from "puppeteer";
 
-const MAX_BROWSERS = 3;
+const MAX_CONCURRENT_PAGES = 2;
 
-interface BrowserSlot {
-    browser: Browser;
-    busy: boolean;
-}
+let browser: Browser | null = null;
+let browserPromise: Promise<Browser> | null = null;
 
-const browsers: BrowserSlot[] = [];
-const waitQueue: ((slot: BrowserSlot) => void)[] = [];
+let activePages = 0;
+const waitQueue: (() => void)[] = [];
 
-async function createBrowser(): Promise<BrowserSlot> {
-    const browser = await puppeteer.launch({
+async function getBrowser(): Promise<Browser> {
+    if (browser && browser.connected) {
+        return browser;
+    }
+
+    // Prevent multiple simultaneous launches.
+    if (browserPromise) {
+        return browserPromise;
+    }
+
+    browserPromise = puppeteer.launch({
         headless: true,
         args: [
             "--no-sandbox",
             "--disable-setuid-sandbox",
-            "--disable-dev-shm-usage"
-        ]
+            "--disable-dev-shm-usage",
+        ],
     });
-
-    return {
-        browser,
-        busy: false
-    };
-}
-
-async function getBrowser(): Promise<BrowserSlot> {
-    const available = browsers.find(b => !b.busy);
-
-    if (available) {
-        available.busy = true;
-        return available;
-    }
-
-    if (browsers.length < MAX_BROWSERS) {
-        const slot = await createBrowser();
-        slot.busy = true;
-        browsers.push(slot);
-        return slot;
-    }
-
-    return new Promise(resolve => {
-        waitQueue.push(slot => {
-            slot.busy = true;
-            resolve(slot);
-        });
-    });
-}
-
-function releaseBrowser(slot: BrowserSlot) {
-    const waiter = waitQueue.shift();
-
-    if (waiter) {
-        waiter(slot);
-    } else {
-        slot.busy = false;
-    }
-}
-
-export async function withBrowser<T>(callback: (browser: Browser) => Promise<T>): Promise<T> {
-    const slot = await getBrowser();
 
     try {
-        return await callback(slot.browser);
+        browser = await browserPromise;
+
+        browser.on("disconnected", () => {
+            console.error("Chromium disconnected");
+            browser = null;
+            browserPromise = null;
+        });
+
+        return browser;
+    } catch (err) {
+        browser = null;
+        throw err;
     } finally {
-        releaseBrowser(slot);
+        browserPromise = null;
+    }
+}
+
+async function acquireSlot(): Promise<void> {
+    if (activePages < MAX_CONCURRENT_PAGES) {
+        activePages++;
+        return;
+    }
+
+    await new Promise<void>((resolve) => {
+        waitQueue.push(resolve);
+    });
+
+    activePages++;
+}
+
+function releaseSlot(): void {
+    activePages--;
+
+    const next = waitQueue.shift();
+
+    if (next) {
+        next();
+    }
+}
+
+export async function withPage<T>(callback: (page: Page) => Promise<T>): Promise<T> {
+    await acquireSlot();
+
+    let page: Page | null = null;
+
+    try {
+        const browser = await getBrowser();
+
+        page = await browser.newPage();
+
+        return await callback(page);
+    } finally {
+        if (page) {
+            try {
+                await page.close();
+            } catch (err) {
+                console.error("Failed to close page:", err);
+            }
+        }
+
+        releaseSlot();
     }
 }
