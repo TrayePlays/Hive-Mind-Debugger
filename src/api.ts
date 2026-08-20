@@ -387,56 +387,46 @@ export async function handleRequestAsync(data: string, socket: ModSocket) {
 
 async function getOnlineSequencerData(sequenceUrl: string): Promise<number[] | null> {
     return withPage(async (page) => {
-        try {
-            await page.goto(sequenceUrl, {
-                waitUntil: "domcontentloaded",
-                timeout: 30000
-            });
+        await page.goto(sequenceUrl, {
+            waitUntil: "domcontentloaded",
+            timeout: 30000
+        });
 
-            await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
-            const rawMidiBytes = await page.evaluate(async (): Promise<number[]> => {
-                if (typeof (window as any).exportMidi !== "function") {
-                    throw new Error("exportMidi function not found");
-                }
-
-                let interceptedBytes: number[] | null = null;
-
-                const originalSaveBlob = (window as any).saveBlob;
-
-                (window as any).saveBlob = function (
-                    filename: string,
-                    dataArray: any[],
-                    mimeType: string
-                ) {
-                    if (dataArray && dataArray[0]) {
-                        interceptedBytes = Array.from(dataArray[0]);
-                    }
-                };
-
-                (window as any).exportMidi();
-
-                (window as any).saveBlob = originalSaveBlob;
-
-                if (!interceptedBytes) {
-                    throw new Error(
-                        "Failed to intercept MIDI data via saveBlob invocation"
-                    );
-                }
-
-                return interceptedBytes;
-            });
-
-            return rawMidiBytes;
-
-        } finally {
-            if (page) {
-                try {
-                    await page.close();
-                } catch (err) {
-                    console.error("Failed to close page:", err);
-                }
+        const rawMidiBytes = await page.evaluate(async (): Promise<number[]> => {
+            if (typeof (window as any).exportMidi !== "function") {
+                throw new Error("exportMidi function not found");
             }
-        }
+
+            let interceptedBytes: number[] | null = null;
+
+            const originalSaveBlob = (window as any).saveBlob;
+
+            (window as any).saveBlob = function (
+                filename: string,
+                dataArray: any[],
+                mimeType: string
+            ) {
+                if (dataArray && dataArray[0]) {
+                    interceptedBytes = Array.from(dataArray[0]);
+                }
+            };
+            try {
+                (window as any).exportMidi();
+            } finally {
+                (window as any).saveBlob = originalSaveBlob;
+            }
+
+            if (!interceptedBytes) {
+                throw new Error("Failed to intercept MIDI data via saveBlob invocation");
+            }
+
+            return interceptedBytes;
+        });
+
+        return rawMidiBytes;
+
+
     });
 }
