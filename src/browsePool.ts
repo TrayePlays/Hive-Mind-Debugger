@@ -83,14 +83,6 @@ async function closeBrowser(): Promise<void> {
 }
 
 async function getBrowser(): Promise<Browser> {
-    if (browser && browser.connected && !browserRestartRequested) {
-        return browser;
-    }
-
-    if (browser && browserRestartRequested && activePages === 0) {
-        await closeBrowser();
-    }
-
     if (browser && browser.connected) {
         return browser;
     }
@@ -104,7 +96,6 @@ async function getBrowser(): Promise<Browser> {
     browserPromise = puppeteer.launch({
         headless: true,
         args: CHROME_ARGS,
-
         handleSIGINT: false,
         handleSIGTERM: false,
         handleSIGHUP: false,
@@ -122,23 +113,17 @@ async function getBrowser(): Promise<Browser> {
         console.log(`[browserPool] Chromium launched${pid ? ` (pid ${pid})` : ""}`);
 
         newBrowser.on("disconnected", () => {
-            const disconnectedPid = getBrowserPid(newBrowser);
-
-            console.error(`[browserPool] Chromium disconnected${disconnectedPid ? ` (pid ${disconnectedPid})` : ""}`);
+            console.error(`[browserPool] Chromium disconnected${pid ? ` (pid ${pid})` : ""}`);
 
             if (browser === newBrowser) {
                 browser = null;
             }
-
-            browserRestartRequested = false;
         });
 
         return newBrowser;
     } catch (err) {
         browser = null;
-
         console.error("[browserPool] Chromium launch failed:", err);
-
         throw err;
     } finally {
         browserPromise = null;
@@ -186,11 +171,11 @@ async function maybeRestartBrowser(): Promise<void> {
 
 export async function withPage<T>(callback: (page: Page) => Promise<T>): Promise<T> {
     await acquireSlot();
-
     let page: Page | null = null;
+    let currentBrowser: Browser | null = null;
 
     try {
-        const currentBrowser = await getBrowser();
+        currentBrowser = await getBrowser();
 
         if (!currentBrowser.connected) {
             throw new Error("Chromium disconnected before page creation");
@@ -210,20 +195,27 @@ export async function withPage<T>(callback: (page: Page) => Promise<T>): Promise
         page.setDefaultNavigationTimeout(PAGE_OPERATION_TIMEOUT);
 
         return await callback(page);
+
     } finally {
+
+        //close the page before releasing the slot.
         if (page) {
             try {
                 await page.close();
             } catch (err) {
-                console.error("[browserPool] Failed to close page:", err);
+                console.error(
+                    "[browserPool] Failed to close page:",
+                    err
+                );
             }
         }
 
         releaseSlot();
 
-        if (browserRestartRequested && activePages === 0) {
+        //only the last active request can restart Chromium
+        if (browserRestartRequested && activePages === 0 && browser === currentBrowser) {
             try {
-                await maybeRestartBrowser();
+                await closeBrowser();
             } catch (err) {
                 console.error("[browserPool] Failed to recycle Chromium:", err);
             }

@@ -77,9 +77,13 @@ export function onReload(socket: ModSocket) {
 
 export function onClose(socket: ModSocket | undefined) {
     if (!socket) return;
-    if (socket.streamParser != undefined) {
-        socket.socket.unpipe(socket.streamParser as any)
+    if (socket.streamParser) {
+        try {
+            socket.socket.unpipe(socket.streamParser as any);
+        } catch { }
+
         socket.streamParser.removeAllListeners();
+        socket.streamParser.destroy();
         socket.streamParser = undefined;
     }
 
