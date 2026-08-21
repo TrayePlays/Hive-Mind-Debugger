@@ -3,6 +3,7 @@ import { acquireRequestWriteLock, ModSocket, runCommand, sleep } from "./utils"
 import { parseMidi } from "midi-file"
 import sharp from "sharp";
 import { withPage } from "./browsePool";
+import { TimeoutError } from "puppeteer";
 const MAX_REQUESTS_IN_30 = serverData.config.MAX_REQUESTS_IN_30;
 const MAX_MIDI_IN_5 = serverData.config.MAX_MIDI_IN_5;
 
@@ -388,10 +389,19 @@ export async function handleRequestAsync(data: string, socket: ModSocket) {
 
 async function getOnlineSequencerData(sequenceUrl: string): Promise<number[] | null> {
     return withPage(async (page) => {
-        await page.goto(sequenceUrl, {
-            waitUntil: "domcontentloaded",
-            timeout: 30000
-        });
+        try {
+            await page.goto(sequenceUrl, {
+                waitUntil: "domcontentloaded",
+                timeout: 10000
+            });
+        } catch (err: any) {
+            if (err instanceof TimeoutError) {
+                console.warn(`Navigation timed out: ${sequenceUrl}`);
+                return null;
+            }
+
+            throw err;
+        }
 
         await new Promise(resolve => setTimeout(resolve, 1000));
 
