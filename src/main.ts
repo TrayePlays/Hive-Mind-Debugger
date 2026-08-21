@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import { onReload } from './utils';
 import { loadConfig } from './configLoader';
+import { getBrowserPoolStats } from './browsePool';
 
 // Using port 19144 because its default port
 const server = new Server().listen(19144);
@@ -73,6 +74,8 @@ setInterval(() => {
         heapTotal: Math.round(m.heapTotal / 1024 / 1024) + "MB",
         external: Math.round(m.external / 1024 / 1024) + "MB",
     });
+
+    console.log("Chrome Memory", getBrowserPoolStats());
 }, 5000);
 
 process.on("uncaughtException", (err) => {

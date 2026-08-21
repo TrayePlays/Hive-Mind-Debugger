@@ -1,7 +1,6 @@
 import { serverData } from "./serverData"
 import { acquireRequestWriteLock, ModSocket, runCommand, sleep } from "./utils"
 import { parseMidi } from "midi-file"
-import puppeteer from "puppeteer"
 import sharp from "sharp";
 import { withPage } from "./browsePool";
 const MAX_REQUESTS_IN_30 = serverData.config.MAX_REQUESTS_IN_30;
@@ -426,7 +425,5 @@ async function getOnlineSequencerData(sequenceUrl: string): Promise<number[] | n
         });
 
         return rawMidiBytes;
-
-
     });
 }
