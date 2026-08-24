@@ -66,7 +66,7 @@ async function closeBrowser(): Promise<void> {
     try {
         await currentBrowser.close();
     } catch (err) {
-        console.error("[browserPool] Failed to close Chromium:", err);
+        console.log("[browserPool] Failed to close Chromium:", err);
 
         try {
             const process = currentBrowser.process();
@@ -75,7 +75,7 @@ async function closeBrowser(): Promise<void> {
                 process.kill("SIGKILL");
             }
         } catch (killErr) {
-            console.error("[browserPool] Failed to kill Chromium:", killErr);
+            console.log("[browserPool] Failed to kill Chromium:", killErr);
         }
     }
 
@@ -113,7 +113,7 @@ async function getBrowser(): Promise<Browser> {
         console.log(`[browserPool] Chromium launched${pid ? ` (pid ${pid})` : ""}`);
 
         newBrowser.on("disconnected", () => {
-            console.error(`[browserPool] Chromium disconnected${pid ? ` (pid ${pid})` : ""}`);
+            console.log(`[browserPool] Chromium disconnected${pid ? ` (pid ${pid})` : ""}`);
 
             if (browser === newBrowser) {
                 browser = null;
@@ -123,7 +123,7 @@ async function getBrowser(): Promise<Browser> {
         return newBrowser;
     } catch (err) {
         browser = null;
-        console.error("[browserPool] Chromium launch failed:", err);
+        console.log("[browserPool] Chromium launch failed:", err);
         throw err;
     } finally {
         browserPromise = null;
@@ -203,10 +203,7 @@ export async function withPage<T>(callback: (page: Page) => Promise<T>): Promise
             try {
                 await page.close();
             } catch (err) {
-                console.error(
-                    "[browserPool] Failed to close page:",
-                    err
-                );
+                console.log("[browserPool] Failed to close page:", err);
             }
         }
 
@@ -217,7 +214,7 @@ export async function withPage<T>(callback: (page: Page) => Promise<T>): Promise
             try {
                 await closeBrowser();
             } catch (err) {
-                console.error("[browserPool] Failed to recycle Chromium:", err);
+                console.log("[browserPool] Failed to recycle Chromium:", err);
             }
         }
     }
@@ -237,7 +234,7 @@ export function getBrowserPoolStats() {
 
 export async function closeBrowserPool(): Promise<void> {
     if (activePages > 0) {
-        console.warn(`[browserPool] closeBrowserPool called with ${activePages} active page(s)`);
+        console.log(`[browserPool] closeBrowserPool called with ${activePages} active page(s)`);
     }
 
     if (browserPromise) {

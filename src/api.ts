@@ -336,7 +336,7 @@ export async function handleRequestAsync(data: string, socket: ModSocket) {
                 try {
                     dataReceived = parseMidi(res);
                 } catch (e: any) {
-                    console.warn("Failed to parse MIDI:", e);
+                    console.warn(`Failed to parse MIDI: | ${request.data.uri}`, e);
                     await sendResponse(socket, { status: ServerStatusResponse.Failure, id: request.id, message: "Invalid or malformed MIDI data" }, scriptEvent);
                     return;
                 }
