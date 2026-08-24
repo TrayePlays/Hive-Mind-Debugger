@@ -113,7 +113,6 @@ export function onClose(socket: ModSocket | undefined) {
     // console.log(`Socket disconnected! ${serverData.connectedSockets.length} Online!`);
     socket.sendDiscord = undefined;
     socket.hivemindData = undefined;
-    console.log(socket);
     socket = undefined;
 }
 
