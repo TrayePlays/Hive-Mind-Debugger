@@ -587,11 +587,12 @@ interface PendingDebuggerRequest {
 
 async function processWriteQueue(socket: ModSocket): Promise<void> {
     if (socket.isWriting) return;
-
+    if (socket.destroyed) return;
     socket.isWriting = true;
 
     try {
         while (socket.writeQueue.length > 0 && !socket.socket.destroyed && socket.socket.writable) {
+            if (socket.destroyed) return;
             const item = socket.writeQueue[0];
 
             try {
@@ -655,6 +656,7 @@ async function processWriteQueue(socket: ModSocket): Promise<void> {
             }
         }
     } finally {
+        if (socket.destroyed) return;
         socket.isWriting = false;
 
         if (socket.writeQueue.length > 0 && !socket.socket.destroyed && socket.socket.writable) {
