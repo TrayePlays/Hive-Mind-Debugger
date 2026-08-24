@@ -128,6 +128,7 @@ function checkMidiLimit(socket: ModSocket): boolean {
 
 async function processRequestQueue(socket: ModSocket): Promise<void> {
     if (socket.processingRequests) return;
+    if (socket.destroyed) return;
 
     socket.processingRequests = true;
 
@@ -167,6 +168,7 @@ export function handleRequest(data: string, socket: ModSocket) {
 }
 
 export async function handleRequestAsync(data: string, socket: ModSocket) {
+    if (socket.destroyed) return;
     try {
         if (socket.hivemindData?.name == "SongPlayer") console.log("HANDLE REQUEST CALLED", Date.now());
         const requestStr = data

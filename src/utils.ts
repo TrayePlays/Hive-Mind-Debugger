@@ -77,6 +77,9 @@ export function onReload(socket: ModSocket) {
 
 export function onClose(socket: ModSocket | undefined) {
     if (!socket) return;
+    if (socket.destroyed) return;
+    socket.destroyed = true;
+
     if (socket.streamParser) {
         try {
             socket.socket.unpipe(socket.streamParser as any);
@@ -88,13 +91,21 @@ export function onClose(socket: ModSocket | undefined) {
     }
 
     serverData.connectedSockets = serverData.connectedSockets.filter(a => a != socket);
-    socket.socket.removeAllListeners("data");
-    socket.socket.removeAllListeners("error");
-    socket.socket.removeAllListeners("close");
-    socket.socket.removeAllListeners("timeout");
-    socket.rateLimit = undefined;
-    socket.requests.clear();
-    socket!.requestManager = undefined;
+    Object.assign(socket, {
+        requestManager: undefined,
+        requestQueue: undefined,
+        requests: undefined,
+        writeQueue: undefined,
+        protocolCapabilities: undefined,
+        interval: undefined,
+        midiLimit: undefined,
+        rateLimit: undefined,
+        version: undefined,
+        processingRequests: undefined,
+        isConnected: undefined,
+        isWriting: undefined
+    });
+    socket.socket.removeAllListeners();
     clearInterval(socket.interval);
     socket.interval = undefined;
     socket.socket.destroy();
@@ -102,6 +113,8 @@ export function onClose(socket: ModSocket | undefined) {
     // console.log(`Socket disconnected! ${serverData.connectedSockets.length} Online!`);
     socket.sendDiscord = undefined;
     socket.hivemindData = undefined;
+    console.log(socket);
+    socket = undefined;
 }
 
 interface StatsSchema {
@@ -138,7 +151,7 @@ export async function onConnectionComplete(protocolVersion: number, socket: ModS
 
         if (!socket.hivemindData) {
             // console.warn(`Socket has no purpose`);
-            sendMessage(socket, `§4ERROR: §cThis world doesn't have Hive Mind API setup properly.\n§9For help join discord: https://discord.gg/GHzNqpZ4Bu`)
+            sendMessage(socket, `§4ERROR: §cThis world doesn't have Hive Mind API setup properly.\n§9For help join discord: dsc.gg/traye`)
             await sleep(2000);
             onClose(socket)
             return;
@@ -367,6 +380,7 @@ export function handleDebugeeEvent(socket: ModSocket, eventMessage: any) {
 }
 
 export async function runCommand(socket: ModSocket, command: string): Promise<void> {
+    if (socket.destroyed) return;
     if (socket.version < ProtocolVersion.SupportProfilerCaptures || socket.version >= ProtocolVersion.SupportCerealSerialization) {
         await sendDebuggeeMessage(socket, {
             type: 'minecraftCommand',
@@ -391,6 +405,7 @@ export function sendMessage(socket: ModSocket, message: string) {
 export class ModSocket {
     public requestManager: RequestManager | undefined;
     public requests = new Map<number, any>();
+    public destroyed = false
     public requestQueue: (() => Promise<void>)[] = [];
     public processingRequests = false;
     public socket: Socket;
@@ -417,7 +432,6 @@ export class ModSocket {
         tokens: number
         lastRefill: number
     }
-
     sendDiscord?: boolean
 
     constructor(existingSocket: Socket, connectionData: { isConnected?: boolean, protocolCapabilities?: ProtocolCapabilities } = { isConnected: false, protocolCapabilities: undefined }) {
