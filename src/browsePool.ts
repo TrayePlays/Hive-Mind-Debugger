@@ -36,10 +36,12 @@ const CHROME_ARGS = [
 
 let browser: Browser | null = null;
 let browserPromise: Promise<Browser> | null = null;
+let browserClosePromise: Promise<void> | null = null;
 let activePages = 0;
 let pagesCreated = 0;
 let browserRestartRequested = false;
 const waitQueue: Array<() => void> = [];
+
 function getBrowserPid(target: Browser | null): number | undefined {
     try {
         return target?.process()?.pid;
@@ -49,6 +51,11 @@ function getBrowserPid(target: Browser | null): number | undefined {
 }
 
 async function closeBrowser(): Promise<void> {
+    if (browserClosePromise) {
+        await browserClosePromise;
+        return;
+    }
+
     const currentBrowser = browser;
 
     if (!currentBrowser) {
@@ -61,29 +68,41 @@ async function closeBrowser(): Promise<void> {
 
     const pid = getBrowserPid(currentBrowser);
 
-    console.log(`[browserPool] Closing Chromium${pid ? ` (pid ${pid})` : ""}...`);
-
-    try {
-        await currentBrowser.close();
-    } catch (err) {
-        console.log("[browserPool] Failed to close Chromium:", err);
+    browserClosePromise = (async () => {
+        console.log(`[browserPool] Closing Chromium${pid ? ` (pid ${pid})` : ""}...`);
 
         try {
-            const process = currentBrowser.process();
+            await currentBrowser.close();
+        } catch (err) {
+            console.log("[browserPool] Failed to close Chromium:", err);
 
-            if (process && !process.killed) {
-                process.kill("SIGKILL");
+            try {
+                const process = currentBrowser.process();
+
+                if (process && !process.killed) {
+                    process.kill("SIGKILL");
+                }
+            } catch (killErr) {
+                console.log("[browserPool] Failed to kill Chromium:", killErr);
             }
-        } catch (killErr) {
-            console.log("[browserPool] Failed to kill Chromium:", killErr);
         }
-    }
 
-    console.log(`[browserPool] Chromium closed${pid ? ` (pid ${pid})` : ""}`);
+        console.log(`[browserPool] Chromium closed${pid ? ` (pid ${pid})` : ""}`);
+    })();
+
+    try {
+        await browserClosePromise;
+    } finally {
+        browserClosePromise = null;
+    }
 }
 
 async function getBrowser(): Promise<Browser> {
-    if (browser && browser.connected) {
+    if (browserClosePromise) {
+        await browserClosePromise;
+    }
+
+    if (browser && browser.connected && !browserRestartRequested) {
         return browser;
     }
 
@@ -157,16 +176,32 @@ function releaseSlot(): void {
     }
 }
 
-async function maybeRestartBrowser(): Promise<void> {
-    if (!browserRestartRequested) {
-        return;
-    }
+async function waitForBrowser(): Promise<Browser> {
+    while (true) {
+        if (browserClosePromise) {
+            await browserClosePromise;
+            continue;
+        }
 
-    if (activePages !== 0) {
-        return;
-    }
+        if (browser && browser.connected && !browserRestartRequested) {
+            return browser;
+        }
 
-    await closeBrowser();
+        if (browserRestartRequested) {
+            if (activePages > 0) {
+                await new Promise<void>((resolve) => {
+                    setTimeout(resolve, 25);
+                });
+
+                continue;
+            }
+
+            await closeBrowser();
+            continue;
+        }
+
+        return await getBrowser();
+    }
 }
 
 export async function withPage<T>(callback: (page: Page) => Promise<T>): Promise<T> {
@@ -175,7 +210,7 @@ export async function withPage<T>(callback: (page: Page) => Promise<T>): Promise
     let currentBrowser: Browser | null = null;
 
     try {
-        currentBrowser = await getBrowser();
+        currentBrowser = await waitForBrowser();
 
         if (!currentBrowser.connected) {
             throw new Error("Chromium disconnected before page creation");
@@ -189,6 +224,8 @@ export async function withPage<T>(callback: (page: Page) => Promise<T>): Promise
 
         if (pagesCreated >= MAX_PAGES_BEFORE_BROWSER_RESTART) {
             browserRestartRequested = true;
+
+            console.log(`[browserPool] Chromium marked for restart after ${pagesCreated} pages`);
         }
 
         page.setDefaultTimeout(PAGE_OPERATION_TIMEOUT);
@@ -207,16 +244,27 @@ export async function withPage<T>(callback: (page: Page) => Promise<T>): Promise
             }
         }
 
-        releaseSlot();
+        /*
+         * activePages still includes the current request here.
+         * Therefore activePages === 1 means this is the last active page.
+         */
+        const shouldRestart = browserRestartRequested && activePages === 1 && browser === currentBrowser;
 
-        //only the last active request can restart Chromium
-        if (browserRestartRequested && activePages === 0 && browser === currentBrowser) {
+        /*
+         * Restart Chromium BEFORE releasing the slot.
+         *
+         * This prevents a queued request from immediately starting
+         * another page on the browser that is being retired.
+         */
+        if (shouldRestart) {
             try {
                 await closeBrowser();
             } catch (err) {
                 console.log("[browserPool] Failed to recycle Chromium:", err);
             }
         }
+
+        releaseSlot();
     }
 }
 
@@ -229,6 +277,8 @@ export function getBrowserPoolStats() {
         pagesCreated,
         maxPagesBeforeRestart: MAX_PAGES_BEFORE_BROWSER_RESTART,
         browserRestartRequested,
+        browserLaunching: !!browserPromise,
+        browserClosing: !!browserClosePromise,
     };
 }
 
@@ -245,7 +295,15 @@ export async function closeBrowserPool(): Promise<void> {
         }
     }
 
-    if (browser) {
+    if (browserClosePromise) {
+        try {
+            await browserClosePromise;
+        } catch {
+            //close failure is already logged
+        }
+    }
+
+    if (browser && activePages === 0) {
         await closeBrowser();
     }
 }

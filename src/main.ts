@@ -73,6 +73,7 @@ setInterval(() => {
         heapUsed: Math.round(m.heapUsed / 1024 / 1024) + "MB",
         heapTotal: Math.round(m.heapTotal / 1024 / 1024) + "MB",
         external: Math.round(m.external / 1024 / 1024) + "MB",
+        arrayBuffers: Math.round(m.arrayBuffers / 1024 / 1024) + "MB",
     });
 
     console.log("Chrome Memory", getBrowserPoolStats());

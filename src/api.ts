@@ -168,6 +168,45 @@ export function handleRequest(data: string, socket: ModSocket) {
     void processRequestQueue(socket);
 }
 
+const MAX_RESPONSE_SIZE = 10 * 1024 * 1024;
+
+async function readResponseWithLimit(res: Response, maxSize = MAX_RESPONSE_SIZE): Promise<Buffer> {
+    if (!res.body) {
+        const buffer = Buffer.from(await res.arrayBuffer());
+
+        if (buffer.length > maxSize) {
+            throw new Error("Response is too large! Maximum size is 10 MB.");
+        }
+
+        return buffer;
+    }
+
+    const reader = res.body.getReader();
+    const chunks: Buffer[] = [];
+    let totalSize = 0;
+
+    try {
+        while (true) {
+            const { done, value } = await reader.read();
+
+            if (done) break;
+
+            totalSize += value.byteLength;
+
+            if (totalSize > maxSize) {
+                await reader.cancel();
+                throw new Error("Response is too large! Maximum size is 10 MB.");
+            }
+
+            chunks.push(Buffer.from(value));
+        }
+    } finally {
+        reader.releaseLock();
+    }
+
+    return Buffer.concat(chunks);
+}
+
 export async function handleRequestAsync(data: string, socket: ModSocket) {
     if (socket.destroyed) return;
     try {
@@ -200,7 +239,24 @@ export async function handleRequestAsync(data: string, socket: ModSocket) {
                 return;
             }
             try {
-                const res = await fetch(request.data.uri, request.data.init);
+                const controller = new AbortController();
+
+                const timeout = setTimeout(() => {
+                    controller.abort();
+                }, 15_000);
+
+                let res: Response;
+                try {
+                    const init: RequestInit = {
+                        ...(request.data.init || {}),
+                        signal: controller.signal
+                    };
+
+                    res = await fetch(request.data.uri, init);
+                } finally {
+                    clearTimeout(timeout);
+                }
+
                 if (!res.ok) {
                     const errMsg = await res.text()
                     await sendResponse(socket, { status: ServerStatusResponse.Failure, id: request.id, message: `HTTP Error! Status code: ${res.status}`, data: errMsg }, scriptEvent)
@@ -212,24 +268,19 @@ export async function handleRequestAsync(data: string, socket: ModSocket) {
                 const contentLength = Number(res.headers.get('content-length') || 0);
 
                 if (contentLength > maxResponseSize) {
-                    await sendResponse(socket, { id: request.id, status: ServerStatusResponse.Failure, message: `Response is too large! Maximum size is 10 MB.` }, scriptEvent)
+                    await sendResponse(socket, { id: request.id, status: ServerStatusResponse.Failure, message: `Response is too large! Maximum size is 10 MB.` }, scriptEvent);
                     return;
                 }
 
                 let dataReceived: any;
+
+                const responseBuffer = await readResponseWithLimit(res, maxResponseSize);
+
                 if (contentType.includes("application/json")) {
-                    dataReceived = await res.json();
+                    dataReceived = JSON.parse(responseBuffer.toString("utf8"));
                 } else if (contentType.startsWith("image/")) {
-                    const arrBuffer = await res.arrayBuffer();
-
-                    if (arrBuffer.byteLength > maxResponseSize) {
-                        await sendResponse(socket, { id: request.id, status: ServerStatusResponse.Failure, message: `Response is too large! Maximum size is 10 MB.` }, scriptEvent)
-                        return;
-                    }
-
-                    const buffer = Buffer.from(arrBuffer);
-                    let image = sharp(buffer).ensureAlpha()
-                    const crop = request.data.extraInfo?.crop
+                    let image = sharp(responseBuffer).ensureAlpha();
+                    const crop = request.data.extraInfo?.crop;
 
                     if (crop != undefined) {
                         image = image.extract(crop);
@@ -243,38 +294,14 @@ export async function handleRequestAsync(data: string, socket: ModSocket) {
                         height: info.height
                     };
                 } else {
-                    if (!res.body) {
-                        dataReceived = await res.text();
-                    } else {
-                        const reader = res.body.getReader();
-                        const chunks: Buffer[] = [];
-                        let totalSize = 0;
-
-                        while (true) {
-                            const { done, value } = await reader.read();
-
-                            if (done) break;
-
-                            totalSize += value.byteLength;
-
-                            if (totalSize > maxResponseSize) {
-                                await reader.cancel();
-                                await sendResponse(socket, { id: request.id, status: ServerStatusResponse.Failure, message: `Response is too large! Maximum size is 10 MB.` }, scriptEvent)
-                                return;
-                            }
-
-                            chunks.push(Buffer.from(value));
-                        }
-
-                        dataReceived = Buffer.concat(chunks).toString("utf8");
-                    }
+                    dataReceived = responseBuffer.toString("utf8");
                 }
 
                 let str = JSON.stringify(JSON.stringify(dataReceived)).slice(1, -1);
                 if (scriptEvent) str = JSON.stringify(dataReceived);
                 // 2074 max length of command
                 const maxChunk = 1000 - request.id.length - (scriptEvent ? 21 : 0);
-                if (socket.hivemindData?.version ?? 0.2 >= 0.5) await sendResponse(socket, { id: request.id, status: ServerStatusResponse.Running, data: JSON.stringify({ totalChunks: Math.ceil(str.length / maxChunk) }) })
+                if ((socket.hivemindData?.version ?? 0.2) >= 0.5) await sendResponse(socket, { id: request.id, status: ServerStatusResponse.Running, data: JSON.stringify({ totalChunks: Math.ceil(str.length / maxChunk) }) })
                 const release = await acquireRequestWriteLock(socket);
                 try {
                     let i = 0;
@@ -346,7 +373,7 @@ export async function handleRequestAsync(data: string, socket: ModSocket) {
 
                 // 2074 max length of command
                 const maxChunk = 1000 - request.id.length - (scriptEvent ? 21 : 0);
-                if (socket.hivemindData?.version ?? 0.2 >= 0.5) await sendResponse(socket, { id: request.id, status: ServerStatusResponse.Running, data: JSON.stringify({ totalChunks: Math.ceil(str.length / maxChunk) }) })
+                if ((socket.hivemindData?.version ?? 0.2) >= 0.5) await sendResponse(socket, { id: request.id, status: ServerStatusResponse.Running, data: JSON.stringify({ totalChunks: Math.ceil(str.length / maxChunk) }) })
                 const release = await acquireRequestWriteLock(socket);
                 try {
                     let i = 0;
