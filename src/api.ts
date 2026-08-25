@@ -249,9 +249,9 @@ async function readResponseWithLimit(res: Response, maxSize = MAX_RESPONSE_SIZE)
 export async function handleRequestAsync(data: string, socket: ModSocket) {
     if (socket.destroyed) return;
     try {
-        if (socket.hivemindData?.name == "SongPlayer") console.log("HANDLE REQUEST CALLED", Date.now());
         const requestStr = data
         const request = JSON.parse(requestStr) as Request
+        if (socket.hivemindData?.name == "SongPlayer") console.log("HANDLE REQUEST CALLED", Date.now(), request.id);
 
         // if (socket.hivemindData?.name == "SongPlayer") console.log("HANDLE REQUEST", request.id, Date.now());
 
