@@ -320,58 +320,66 @@ export function handleDebugeeEvent(socket: ModSocket, eventMessage: any) {
         for (const stat of evt.stats) {
             if (stat.name == "dynamic_property_values") {
                 const dps = stat.children;
-                // console.log(dps.filter(dp => dp.name.startsWith("hivemindRequest")).map(dp => dp.name).join(", "))
-                // const reloadDP = dps.find(dp => dp.name == "hivemindReload");
-                // if (reloadDP) {
-                //     runCommand(socket, `reload`);
-                //     runCommand(socket, ``)
-                // }
+                const requestGroups = new Map<string, { meta?: any, chunks: Map<number, any> }>();
+                for (const dp of dps) {
+                    const name = dp.name;
 
-                const disconnectDP = dps.find(dp => dp.name == "hivemindDisconnect");
-                if (disconnectDP) {
-                    onClose(socket);
-                    return;
-                }
-
-                // v0.2 or less
-                const legacyRequests = dps.filter(dp => dp.name.startsWith("hivemindRequest") && !dp.name.includes("|"));
-
-                if (legacyRequests.length != 0) {
-                    for (const dp of legacyRequests) {
-                        handleRequest(dp.values[0], socket);
+                    if (name == "hivemindDisconnect") {
+                        onClose(socket);
+                        return;
                     }
-                    return;
+
+                    if (!name.startsWith("hivemindRequest")) {
+                        continue;
+                    }
+
+                    const separator = name.indexOf("|");
+
+                    // v0.2 or less
+                    if (separator === -1) {
+                        handleRequest(dp.values[0], socket);
+                        continue;
+                    }
+
+                    // v0.3 and above
+                    const key = name.slice(0, separator);
+                    const index = name.slice(separator + 1);
+
+                    let group = requestGroups.get(key);
+
+                    if (!group) {
+                        group = {
+                            chunks: new Map()
+                        };
+
+                        requestGroups.set(key, group);
+                    }
+
+                    if (index === "meta") {
+                        group.meta = dp.values[0];
+                    } else {
+                        group.chunks.set(Number(index), dp.values[0]);
+                    }
                 }
 
-                // v0.3 and above
-                const chunked = dps.filter(dp => dp.name.startsWith("hivemindRequest") && dp.name.includes("|"));
+                for (const [id, group] of requestGroups) {
+                    if (group.meta === undefined) {
+                        continue;
+                    }
 
-                const requestGroups = new Map<string, any[]>();
-                for (const dp of chunked) {
-                    const [key, index] = dp.name.split("|");
+                    const chunkCount = Number(group.meta);
 
-                    if (!requestGroups.has(key)) requestGroups.set(key, []);
-
-                    requestGroups.get(key)!.push({
-                        index,
-                        value: dp.values[0]
-                    });
-                }
-
-                for (const [id, parts] of requestGroups) {
-                    const meta = parts.find(p => p.index === "meta");
-                    if (!meta) continue;
-
-                    const chunkCount = meta.value;
-
-                    let full = "";
+                    const parts = new Array<string>(chunkCount);
 
                     for (let i = 0; i < chunkCount; i++) {
-                        const chunk = parts.find(p => p.index === String(i));
-                        if (!chunk) continue;
-                        full += chunk.value;
+                        const chunk = group.chunks.get(i);
+
+                        if (chunk !== undefined) {
+                            parts[i] = chunk;
+                        }
                     }
-                    handleRequest(full, socket);
+
+                    handleRequest(parts.join(""), socket);
                 }
             }
         }
