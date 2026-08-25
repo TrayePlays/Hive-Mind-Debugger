@@ -154,6 +154,21 @@ async function processRequestQueue(socket: ModSocket): Promise<void> {
     }
 }
 
+function hasProcessedRequest(socket: ModSocket, id: string): boolean {
+    const now = Date.now();
+    const previous = socket.processedRequests.get(id);
+
+    if (previous !== undefined) {
+        return true;
+    }
+
+    socket.processedRequests.set(id, now);
+
+    return false;
+}
+
+const REQUEST_DEDUP_TTL = 10_000;
+
 export function handleRequest(data: string, socket: ModSocket) {
     let request: Request;
 
@@ -161,6 +176,30 @@ export function handleRequest(data: string, socket: ModSocket) {
         request = JSON.parse(data);
     } catch {
         return;
+    }
+
+    if (request.id == undefined) {
+        void sendResponse(socket, { status: ServerStatusResponse.Failure, id: "ERROR", message: "No request id!" }, request?.scriptEvent)
+        return;
+    }
+
+    const now = Date.now();
+    const previous = socket.processedRequests.get(request.id);
+
+    if (previous !== undefined && now - previous < REQUEST_DEDUP_TTL) {
+        console.log(`[dedupe] Ignoring duplicate request: ${request.id}`);
+        return;
+    }
+
+    socket.processedRequests.set(request.id, now);
+
+    //cleanup old entries
+    if (socket.processedRequests.size > 1000) {
+        for (const [id, timestamp] of socket.processedRequests) {
+            if (now - timestamp >= REQUEST_DEDUP_TTL) {
+                socket.processedRequests.delete(id);
+            }
+        }
     }
 
     void sendResponse(socket, { status: ServerStatusResponse.Ran, id: request.id }, request.scriptEvent);
@@ -220,10 +259,6 @@ export async function handleRequestAsync(data: string, socket: ModSocket) {
         const scriptEventQuote = scriptEvent ? "" : `"`
         await runCommand(socket, `${scriptEvent ? "scriptevent hivemind:" : ""}set remove ${scriptEventQuote}${request.id}${scriptEventQuote} hivemindRequest${request.id}`)
 
-        if (request.id == undefined) {
-            await sendResponse(socket, { status: ServerStatusResponse.Failure, id: "ERROR", message: "No request id!" }, scriptEvent)
-            return;
-        }
         if (!Object.values(RequestTypes).includes(request?.type)) {
             await sendResponse(socket, { status: ServerStatusResponse.Failure, id: request.id, message: "Unknown request type!" }, scriptEvent)
             return;

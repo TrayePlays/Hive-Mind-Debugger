@@ -414,6 +414,7 @@ export class ModSocket {
     public requests = new Map<number, any>();
     public destroyed = false
     public requestQueue: (() => Promise<void>)[] = [];
+    public processedRequests = new Map<string, number>();
     public processingRequests = false;
     public socket: Socket;
     public version: number;
