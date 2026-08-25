@@ -150,7 +150,7 @@ async function getBrowser(): Promise<Browser> {
 }
 
 async function acquireSlot(): Promise<void> {
-    if (activePages < MAX_CONCURRENT_PAGES) {
+    if (activePages < MAX_CONCURRENT_PAGES && !browserRestartRequested) {
         activePages++;
         return;
     }
@@ -167,6 +167,10 @@ function releaseSlot(): void {
 
     if (activePages < 0) {
         activePages = 0;
+    }
+
+    if (browserRestartRequested) {
+        return;
     }
 
     const next = waitQueue.shift();
@@ -204,6 +208,22 @@ async function waitForBrowser(): Promise<Browser> {
     }
 }
 
+function wakeNextRequest(): void {
+    if (browserRestartRequested) {
+        return;
+    }
+
+    if (activePages >= MAX_CONCURRENT_PAGES) {
+        return;
+    }
+
+    const next = waitQueue.shift();
+
+    if (next) {
+        next();
+    }
+}
+
 export async function withPage<T>(callback: (page: Page) => Promise<T>): Promise<T> {
     await acquireSlot();
     let page: Page | null = null;
@@ -235,7 +255,7 @@ export async function withPage<T>(callback: (page: Page) => Promise<T>): Promise
 
     } finally {
 
-        //close the page before releasing the slot.
+        //close the page before releasing the slot
         if (page) {
             try {
                 await page.close();
@@ -244,18 +264,8 @@ export async function withPage<T>(callback: (page: Page) => Promise<T>): Promise
             }
         }
 
-        /*
-         * activePages still includes the current request here.
-         * Therefore activePages === 1 means this is the last active page.
-         */
         const shouldRestart = browserRestartRequested && activePages === 1 && browser === currentBrowser;
 
-        /*
-         * Restart Chromium BEFORE releasing the slot.
-         *
-         * This prevents a queued request from immediately starting
-         * another page on the browser that is being retired.
-         */
         if (shouldRestart) {
             try {
                 await closeBrowser();
@@ -265,6 +275,10 @@ export async function withPage<T>(callback: (page: Page) => Promise<T>): Promise
         }
 
         releaseSlot();
+
+        if (!browserRestartRequested) {
+            wakeNextRequest();
+        }
     }
 }
 
