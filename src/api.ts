@@ -127,29 +127,29 @@ function checkMidiLimit(socket: ModSocket): boolean {
 }
 
 async function processRequestQueue(socket: ModSocket): Promise<void> {
-    if (socket.processingRequests) return;
-    if (socket.destroyed) return;
-
+    if (socket.destroyed || socket.processingRequests) return;
     socket.processingRequests = true;
-
     try {
-        while (socket?.requestQueue?.length > 0) {
-            const request = socket?.requestQueue?.shift();
+        while (!socket.destroyed && socket.requestQueue?.length) {
+            const request = socket.requestQueue.shift();
 
             if (!request) continue;
 
             try {
                 if (socket.destroyed) return;
+
                 await request();
             } catch (err) {
-                console.error("Request failed:", err);
+                if (!socket.destroyed) {
+                    console.error("Request failed:", err);
+                }
             }
         }
     } finally {
         socket.processingRequests = false;
 
-        if (socket.requestQueue.length > 0) {
-            processRequestQueue(socket);
+        if (!socket.destroyed && socket.requestQueue?.length) {
+            void processRequestQueue(socket);
         }
     }
 }
