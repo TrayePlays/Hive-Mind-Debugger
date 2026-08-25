@@ -133,12 +133,13 @@ async function processRequestQueue(socket: ModSocket): Promise<void> {
     socket.processingRequests = true;
 
     try {
-        while (socket.requestQueue.length > 0) {
-            const request = socket.requestQueue.shift();
+        while (socket?.requestQueue?.length > 0) {
+            const request = socket?.requestQueue?.shift();
 
             if (!request) continue;
 
             try {
+                if (socket.destroyed) return;
                 await request();
             } catch (err) {
                 console.error("Request failed:", err);
@@ -390,54 +391,59 @@ export async function handleRequestAsync(data: string, socket: ModSocket) {
 }
 
 async function getOnlineSequencerData(sequenceUrl: string): Promise<number[] | null> {
-    return withPage(async (page) => {
-        try {
-            await page.goto(sequenceUrl, {
-                waitUntil: "domcontentloaded",
-                timeout: 10000
-            });
-        } catch (err: any) {
-            if (err instanceof TimeoutError) {
-                console.warn(`Navigation timed out: ${sequenceUrl}`);
-                return null;
-            }
-
-            throw err;
-        }
-
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        const rawMidiBytes = await page.evaluate(async (): Promise<number[]> => {
-            if (typeof (window as any).exportMidi !== "function") {
-                throw new Error("exportMidi function not found");
-            }
-
-            let interceptedBytes: number[] | null = null;
-
-            const originalSaveBlob = (window as any).saveBlob;
-
-            (window as any).saveBlob = function (
-                filename: string,
-                dataArray: any[],
-                mimeType: string
-            ) {
-                if (dataArray && dataArray[0]) {
-                    interceptedBytes = Array.from(dataArray[0]);
-                }
-            };
+    try {
+        return withPage(async (page) => {
             try {
-                (window as any).exportMidi();
-            } finally {
-                (window as any).saveBlob = originalSaveBlob;
+                await page.goto(sequenceUrl, {
+                    waitUntil: "domcontentloaded",
+                    timeout: 10000
+                });
+            } catch (err: any) {
+                if (err instanceof TimeoutError) {
+                    console.warn(`Navigation timed out: ${sequenceUrl}`);
+                    return null;
+                }
+
+                throw err;
             }
 
-            if (!interceptedBytes) {
-                throw new Error("Failed to intercept MIDI data via saveBlob invocation");
-            }
+            await sleep(1000);
 
-            return interceptedBytes;
+            const rawMidiBytes = await page.evaluate(async (): Promise<number[]> => {
+                if (typeof (window as any).exportMidi !== "function") {
+                    throw new Error("exportMidi function not found");
+                }
+
+                let interceptedBytes: number[] | null = null;
+
+                const originalSaveBlob = (window as any).saveBlob;
+
+                (window as any).saveBlob = function (
+                    filename: string,
+                    dataArray: any[],
+                    mimeType: string
+                ) {
+                    if (dataArray && dataArray[0]) {
+                        interceptedBytes = Array.from(dataArray[0]);
+                    }
+                };
+                try {
+                    (window as any).exportMidi();
+                } finally {
+                    (window as any).saveBlob = originalSaveBlob;
+                }
+
+                if (!interceptedBytes) {
+                    throw new Error("Failed to intercept MIDI data via saveBlob invocation");
+                }
+
+                return interceptedBytes;
+            });
+
+            return rawMidiBytes;
         });
-
-        return rawMidiBytes;
-    });
+    } catch (err: any) {
+        console.log(err);
+        return null;
+    }
 }
