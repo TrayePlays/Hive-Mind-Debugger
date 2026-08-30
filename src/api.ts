@@ -30,7 +30,8 @@ interface ExtraHttpRequestInfo {
 // More request types later
 enum RequestTypes {
     HttpRequest = "httpRequest", // v0.2+
-    MidiRequest = "midiRequest" // v0.4+
+    MidiRequest = "midiRequest", // v0.4+
+    PingRequest = "pingRequest" // v0.6+
 }
 
 enum ServerStatusResponse {
@@ -446,6 +447,9 @@ export async function handleRequestAsync(data: string, socket: ModSocket) {
                 console.error(e.stack);
                 await sendResponse(socket, { id: request.id, status: ServerStatusResponse.Failure, message: `Failed to get data from website: ${e.message}` }, scriptEvent)
             }
+        }
+        if (request.type == RequestTypes.PingRequest) {
+            await sendResponse(socket, {id: request.id, status: ServerStatusResponse.Success, message: "This world is actively connected!"})
         }
     } catch (e: any) {
         console.error(e.stack);
